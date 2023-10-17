@@ -7,3 +7,5 @@ gluonts[torch]
 gluonts[mxnet]
 lightning[extra]
 orjson
+torchvision
+vit-pytorch
