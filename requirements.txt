@@ -1,0 +1,9 @@
+numpy
+pandas
+torch
+gpytorch
+vclog
+gluonts[torch]
+gluonts[mxnet]
+lightning[extra]
+orjson
