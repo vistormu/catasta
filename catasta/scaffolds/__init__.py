@@ -1,1 +1,2 @@
 from .classifier_scaffold import ClassifierScaffold
+from .predictor_scaffold import PredictorScaffold
