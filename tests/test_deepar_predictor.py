@@ -39,8 +39,8 @@ def main() -> None:
     data: list[ModelData] = get_data("tests/data/nylon_strain/")
 
     # Train
-    prediction_length: int = 6
-    epochs: int = 1000
+    prediction_length: int = 12
+    epochs: int = 100
     context: int = int(len(data[0].input)*0.15)
 
     # model = DeepAREstimator(
@@ -53,7 +53,7 @@ def main() -> None:
 
     model = PatchTSTEstimator(
         prediction_length=prediction_length,
-        patch_len=prediction_length//4,
+        patch_len=prediction_length,
         d_model=32,
         nhead=4,
         dim_feedforward=128,
@@ -81,10 +81,12 @@ def main() -> None:
         d = ModelData(input, output)
         forecasts, _ = scaffold.predict(d)
 
-        p_hat = forecasts[0].mean
-        overlapping_mean: np.ndarray = np.mean([q[1:], p_hat[:-1]], axis=0)
-        q = np.append(overlapping_mean, p_hat[-1])
-        predicted_output = np.append(predicted_output, q[0])
+        # p_hat = forecasts[0].mean
+        # overlapping_mean: np.ndarray = np.mean([q[1:], p_hat[:-1]], axis=0)
+        # q = np.append(overlapping_mean, p_hat[-1])
+        # predicted_output = np.append(predicted_output, q[0])
+
+        predicted_output = np.append(predicted_output, np.mean(forecasts[0].mean))
 
     plt.figure(figsize=(30, 20))
     plt.plot(data[-1].output, label="Real")
@@ -108,7 +110,7 @@ def main() -> None:
         # overlapping_mean: np.ndarray = np.mean([q[1:], p_hat[:-1]], axis=0)
         # q = np.append(overlapping_mean, p_hat[-1])
         # predicted_output = np.append(predicted_output, q[0])
-        predicted_output = np.append(predicted_output, forecasts[0].mean[0])
+        predicted_output = np.append(predicted_output, np.mean(forecasts[0].mean))
 
     plt.figure(figsize=(30, 20))
     plt.plot(data[-1].output, label="Real")

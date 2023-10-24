@@ -1,2 +1,3 @@
 from .transformer_image_classifier import TransformerImageClassifier
 from .transformer_signal_classifier import TransformerSignalClassifier
+from .approximate_gp_regressor import ApproximateGPRegressor
