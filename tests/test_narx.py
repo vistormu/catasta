@@ -27,13 +27,6 @@ def get_data(dir: str) -> list[ModelData]:
     return data
 
 
-def escalonate(data: ModelData) -> list[ModelData]:
-    return [ModelData(
-        input=data.input[:i],
-        output=data.output[:i],
-    ) for i in range(1, len(data.input))]
-
-
 class NARX(nn.Module):
     def __init__(self):
         super().__init__()
@@ -55,7 +48,7 @@ basis_function = Polynomial(degree=1)
 
 narx_net = NARXNN(
     net=NARX().to('cuda'),
-    epochs=100,
+    epochs=1000,
     learning_rate=0.01,
     ylag=2,
     xlag=2,
@@ -82,8 +75,8 @@ y_valid = y_data[-1:].reshape(-1, 1)
 narx_net.fit(X=x_train, y=y_train, X_test=x_valid, y_test=y_valid)
 yhat = narx_net.predict(X=x_valid, y=y_valid)
 
-plot_results(y=y_valid, yhat=yhat, n=2500)
+plot_results(y=y_valid, yhat=yhat, n=2500, style="seaborn-v0_8-darkgrid")
 ee = compute_residues_autocorrelation(y_valid, yhat)
-plot_residues_correlation(data=ee, title="Residues", ylabel="$e^2$")
+plot_residues_correlation(data=ee, title="Residues", ylabel="$e^2$", style="seaborn-v0_8-darkgrid")
 x1e = compute_cross_correlation(y_valid, yhat, x_valid)
-plot_residues_correlation(data=x1e, title="Residues", ylabel="$x_1e$")
+plot_residues_correlation(data=x1e, title="Residues", ylabel="$x_1e$", style="seaborn-v0_8-darkgrid")
