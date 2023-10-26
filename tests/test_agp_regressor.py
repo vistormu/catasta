@@ -8,18 +8,17 @@ from catasta.entities import EvalInfo
 
 
 def main() -> None:
-    n_inducing_points: int = 64
+    n_inducing_points: int = 128
     n_dim: int = 20
     dataset = ModelDataset(root="tests/data/nylon_strain/", n_dim=n_dim)
-    model = ApproximateGPRegressor(n_inducing_points, n_dim)
+    model = ApproximateGPRegressor(n_inducing_points, n_dim, kernel="matern", mean="constant")
     scaffold = GaussianRegressorScaffold(model, dataset)
 
     losses: np.ndarray = scaffold.train(
         epochs=100,
         batch_size=256,
-        train_split=0.8571,
+        train_split=6/7,
         lr=1e-3,
-        stop_condition=1e-1,
     )
 
     plt.figure(figsize=(30, 20))
