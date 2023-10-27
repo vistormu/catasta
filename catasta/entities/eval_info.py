@@ -2,7 +2,11 @@ import numpy as np
 
 
 class EvalInfo:
-    def __init__(self, predicted: np.ndarray, real: np.ndarray) -> None:
+    def __init__(self, input: np.ndarray, real: np.ndarray, predicted: np.ndarray, stds: np.ndarray | None = None) -> None:
+        self.input: np.ndarray = input
+        self.predicted: np.ndarray = predicted
+        self.real: np.ndarray = real
+        self.stds: np.ndarray | None = stds
         self.mae: float = np.mean(np.abs(predicted - real))
         self.mse: float = np.mean((predicted - real)**2)
         self.rmse: float = np.sqrt(np.mean((predicted - real)**2))

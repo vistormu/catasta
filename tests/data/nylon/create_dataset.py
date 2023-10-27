@@ -37,14 +37,14 @@ def main() -> None:
         stress: np.ndarray = mat["stress"].flatten()
 
         # z-score
-        # strain = (strain - np.mean(strain)) / np.std(strain)
-        # resistance = (resistance - np.mean(resistance)) / np.std(resistance)
-        # stress = (stress - np.mean(stress)) / np.std(stress)
+        strain = (strain - np.mean(strain)) / np.std(strain)
+        resistance = (resistance - np.mean(resistance)) / np.std(resistance)
+        stress = (stress - np.mean(stress)) / np.std(stress)
 
         # Min-max
-        strain = (strain - np.min(strain)) / (np.max(strain) - np.min(strain))
-        resistance = (resistance - np.min(resistance)) / (np.max(resistance) - np.min(resistance))
-        stress = (stress - np.min(stress)) / (np.max(stress) - np.min(stress))
+        # strain = (strain - np.min(strain)) / (np.max(strain) - np.min(strain))
+        # resistance = (resistance - np.min(resistance)) / (np.max(resistance) - np.min(resistance))
+        # stress = (stress - np.min(stress)) / (np.max(stress) - np.min(stress))
 
         # Signal downsampling
         decimation_factor = 200
