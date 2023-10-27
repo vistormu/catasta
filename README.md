@@ -9,3 +9,8 @@
 [![docs](https://badgen.net/badge/readthedocs/documentation/blue)](https://catasta.readthedocs.io/en/latest/)
 
 Catasta is a library that contains various Deep Learning models for different techniques like classification, regression, prediction, identification... Its philosophy is very simple: select a model, a dataset and feed them into a `Scaffold`, a class that will handle the training, prediction, evaluation...
+
+This library is a Frankenstein of many other libraries that is meant to be used like a trial-and-error model selection with fairly reliable results. I use this library as a tool of my research in MAchine Learning applied to Robotics.
+
+## Installation
+

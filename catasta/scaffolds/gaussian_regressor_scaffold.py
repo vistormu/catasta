@@ -13,10 +13,7 @@ from gpytorch.distributions import MultivariateNormal
 from vclog import Logger
 
 from ..datasets import ModelDataset
-from ..entities import TrainInfo, EvalInfo
-
-# tmp
-import matplotlib.pyplot as plt
+from ..entities import EvalInfo
 
 
 class GaussianRegressorScaffold:
@@ -38,7 +35,6 @@ class GaussianRegressorScaffold:
               batch_size: int = 32,
               train_split: float = 0.8,
               lr: float = 1e-3,
-              stop_condition: float | None = None,
               ) -> np.ndarray:
         self.model.train()
         self.likelihood.train()
@@ -61,6 +57,9 @@ class GaussianRegressorScaffold:
             for j, (x_batch, y_batch) in enumerate(data_loader):
                 optimizer.zero_grad()
 
+                x_batch = x_batch.to(self.device, dtype=self.dtype)
+                y_batch = y_batch.to(self.device, dtype=self.dtype)
+
                 output: Tensor = self.model(x_batch)
 
                 loss: Tensor = -mll(output, y_batch)  # type: ignore
@@ -73,11 +72,6 @@ class GaussianRegressorScaffold:
 
             losses.append(np.mean(batch_losses))
 
-            # stop if the loss has not changed by more than stop_condition within the last 10 epochs with cumulative subtraction
-            if stop_condition is not None and len(losses) > 10 and np.sum(np.diff(losses[-10:]) < stop_condition) == 0:
-                self.logger.info(f"stopping early at epoch {i}")
-                break
-
         self.logger.info(f'epoch {epochs}/{epochs} | 100% | loss: {np.min(losses):.4f}')
 
         return np.array(losses)
@@ -87,10 +81,8 @@ class GaussianRegressorScaffold:
         self.model.eval()
         self.likelihood.eval()
 
-        if isinstance(input, np.ndarray):
-            input_tensor: Tensor = torch.tensor(input, dtype=self.dtype, device=self.device)
-        else:
-            input_tensor: Tensor = input.to(self.device, dtype=self.dtype)
+        input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
+        input_tensor = input_tensor.to(self.device, dtype=self.dtype)
 
         output: MultivariateNormal = self.model(input_tensor)
 
@@ -100,10 +92,7 @@ class GaussianRegressorScaffold:
         return mean, std
 
     @ torch.no_grad()
-    def evaluate(self, plot_results: bool = False) -> EvalInfo:
-        self.model.eval()
-        self.likelihood.eval()
-
+    def evaluate(self) -> EvalInfo:
         test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * self.train_split)+1:]
         test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.train_split)+1:]
 
@@ -117,19 +106,4 @@ class GaussianRegressorScaffold:
             means = np.concatenate([means, mean])
             stds = np.concatenate([stds, std])
 
-        if plot_results:
-            plt.figure(figsize=(10, 10))
-            plt.xlim(-0.2, 1.2)
-            plt.ylim(-0.2, 1.2)
-            plt.plot(test_x[:, -1].flatten(), test_y, 'k.')
-            plt.plot(test_x[:, -1].flatten(), means, 'b.')
-            plt.fill_between(np.mean(test_x, axis=1), means + 2*stds, means - 2*stds, color='b', alpha=0.2)
-            plt.show()
-
-            plt.figure(figsize=(30, 20))
-            plt.plot(test_y, 'k')
-            plt.plot(means, 'b')
-            plt.fill_between(np.arange(test_x.shape[0]), means + 2*stds, means - 2*stds, color='b', alpha=0.2)
-            plt.show()
-
-        return EvalInfo(means, test_y)
+        return EvalInfo(test_x, test_y, means, stds)
