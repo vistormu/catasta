@@ -60,3 +60,9 @@ class ApproximateGPRegressor(ApproximateGP):
         covar_x: Tensor = self.covar_module(x)  # type: ignore
 
         return MultivariateNormal(mean_x, covar_x)
+
+    def save(self, path: str) -> None:
+        torch.save(self.state_dict(), path)
+
+    def load(self, path: str) -> None:
+        self.load_state_dict(torch.load(path))
