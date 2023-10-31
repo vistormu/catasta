@@ -12,18 +12,18 @@ from gpytorch.distributions import MultivariateNormal
 
 from vclog import Logger
 
-from ..datasets import ModelDataset
+from ..datasets import RegressorDataset
 from ..entities import EvalInfo
 
 
 class GaussianRegressorScaffold:
-    def __init__(self, model: Module, dataset: ModelDataset) -> None:
+    def __init__(self, model: Module, dataset: RegressorDataset) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
 
         self.model: Module = model.to(self.device)
         self.likelihood = GaussianLikelihood().to(self.device)
-        self.dataset: ModelDataset = dataset
+        self.dataset: RegressorDataset = dataset
 
         self.logger: Logger = Logger("catasta")
         self.logger.info(f"using device: {self.device}")
