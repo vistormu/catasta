@@ -1,3 +1,2 @@
-from .image_dataset import ImageDataset
-from .signal_dataset import SignalDataset
-from .model_dataset import ModelDataset
+from .classifier_dataset import ClassifierDataset
+from .regressor_dataset import RegressorDataset

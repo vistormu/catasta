@@ -12,6 +12,7 @@ from torch.optim import AdamW
 from vclog import Logger
 
 from ..entities import TrainInfo
+from ..datasets import ClassifierDataset
 
 
 @torch.no_grad()
@@ -30,8 +31,16 @@ def estimate_loss(model: Module, train_dataset: Dataset, val_dataset: Dataset, b
 
         data_loader: DataLoader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
+        # TMP
+        device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model.to(device)
+        dtype: torch.dtype = torch.float32
+
         for i in range(eval_iters):
             input_batch, label_batch = next(iter(data_loader))
+            input_batch = input_batch.to(device, dtype=dtype)
+            label_batch = label_batch.to(device, dtype=torch.long)
+
             logits, loss = model(input_batch, label_batch)
 
             losses[i] = loss.item()
@@ -57,19 +66,21 @@ def estimate_loss(model: Module, train_dataset: Dataset, val_dataset: Dataset, b
 
 
 class ClassifierScaffold:
-    def __init__(self, model: Module, dataset: Dataset):
-        self.logger: Logger = Logger("vistorch")
+    def __init__(self, model: Module, dataset: ClassifierDataset):
         self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.logger.info(f'Using {self.device} device')
+        self.dtype: torch.dtype = torch.float32
 
         self.model: Module = model.to(self.device)
-        self.dataset: Dataset = dataset
+        self.dataset: ClassifierDataset = dataset
+
+        self.logger: Logger = Logger("catasta")
+        self.logger.info(f'Using device: {self.device}')
 
     def train(self, *,
               epochs: int,
               batch_size: int,
-              learning_rate: float = 6e-4,
               train_split: float = 0.8,
+              learning_rate: float = 6e-4,
               log_interval: int = 1,
               eval_iters: int = 5,
               ) -> list[TrainInfo]:
@@ -99,6 +110,11 @@ class ClassifierScaffold:
 
             for batch, (input_batch, label_batch) in enumerate(data_loader):
                 # Forward
+                input_batch = input_batch.to(self.device, dtype=self.dtype)
+                label_batch = label_batch.to(self.device, dtype=torch.long)
+
+                optimizer.zero_grad()
+
                 _, loss = self.model(input_batch, label_batch)
 
                 loss.backward()

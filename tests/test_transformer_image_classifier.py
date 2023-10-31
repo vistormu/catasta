@@ -2,6 +2,7 @@ from catasta.models import TransformerImageClassifier
 from catasta.scaffolds import ClassifierScaffold
 from catasta.datasets import ImageDataset
 from catasta.entities import TrainInfo
+from catasta.datasets.classifier_dataset import ClassifierDataset
 
 import matplotlib.pyplot as plt
 
@@ -21,7 +22,8 @@ def main() -> None:
     log_interval: int = 1
     eval_iters: int = 10
 
-    dataset = ImageDataset(root="tests/images_resized")
+    # dataset = ImageDataset(root="tests/data/images_resized/")
+    dataset = ClassifierDataset(root="tests/data/images_resized/")
 
     model = TransformerImageClassifier(embedding_dim=n_embeddings,
                                        patch_size=sequence_length//32,
@@ -41,24 +43,6 @@ def main() -> None:
                                                       log_interval=log_interval,
                                                       eval_iters=eval_iters,
                                                       )
-
-    # Plot training info
-    train_loss_list: list[float] = [train_info.train_loss for train_info in train_info_list]
-    val_loss_list: list[float] = [train_info.val_loss for train_info in train_info_list]
-    train_accuracy_list: list[float] = [train_info.train_acc for train_info in train_info_list]
-    val_accuracy_list: list[float] = [train_info.val_acc for train_info in train_info_list]
-
-    plt.figure()
-    plt.plot(train_loss_list, label='Train loss')
-    plt.plot(val_loss_list, label='Validation loss')
-    plt.legend()
-
-    plt.figure()
-    plt.plot(train_accuracy_list, label='Train accuracy')
-    plt.plot(val_accuracy_list, label='Validation accuracy')
-    plt.legend()
-
-    plt.show()
 
 
 if __name__ == "__main__":
