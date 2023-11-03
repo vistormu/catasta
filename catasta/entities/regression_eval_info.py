@@ -1,20 +1,20 @@
 import numpy as np
 
 
-class EvalInfo:
+class RegressionEvalInfo:
     def __init__(self, input: np.ndarray, real: np.ndarray, predicted: np.ndarray, stds: np.ndarray | None = None) -> None:
         self.input: np.ndarray = input
         self.predicted: np.ndarray = predicted
         self.real: np.ndarray = real
         self.stds: np.ndarray | None = stds
-        self.mae: float = np.mean(np.abs(predicted - real))
-        self.mse: float = np.mean((predicted - real)**2)
+        self.mae: float = np.mean(np.abs(predicted - real)).astype(float)
+        self.mse: float = np.mean((predicted - real)**2).astype(float)
         self.rmse: float = np.sqrt(np.mean((predicted - real)**2))
         self.r2: float = 1 - np.sum((predicted - real)**2) / np.sum((real - np.mean(real))**2).astype(float)
-        self.mape: float = np.mean(np.abs((predicted - real) / real))
-        self.smape: float = np.mean(np.abs(predicted - real) / (np.abs(predicted) + np.abs(real)))
-        self.mase: float = np.mean(np.abs(predicted - real) / np.mean(np.abs(real)))
-        self.masep: float = np.mean(np.abs(predicted - real) / np.mean(np.abs(real - np.mean(real))))
+        self.mape: float = np.mean(np.abs((predicted - real) / real)).astype(float)
+        self.smape: float = np.mean(np.abs(predicted - real) / (np.abs(predicted) + np.abs(real))).astype(float)
+        self.mase: float = np.mean(np.abs(predicted - real) / np.mean(np.abs(real))).astype(float)
+        self.masep: float = np.mean(np.abs(predicted - real) / np.mean(np.abs(real - np.mean(real)))).astype(float)
 
     def __repr__(self) -> str:
         mae_str: str = f"MAE: {self.mae:.4f}\n"

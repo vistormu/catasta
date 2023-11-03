@@ -1,2 +1,2 @@
 from .classifier_dataset import ClassifierDataset
-from .regressor_dataset import RegressorDataset
+from .regression_dataset import RegressionDataset
