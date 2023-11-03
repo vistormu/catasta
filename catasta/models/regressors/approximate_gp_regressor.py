@@ -7,6 +7,8 @@ from gpytorch.means import ZeroMean, ConstantMean, Mean
 from gpytorch.kernels import ScaleKernel, RBFKernel, MaternKernel, RQKernel, Kernel
 from gpytorch.distributions import MultivariateNormal
 
+from .regressor import Regressor, GaussianRegressor
+
 
 def _get_kernel(id: str, n_dim: int) -> Kernel | None:
     match id.lower():
@@ -30,7 +32,7 @@ def _get_mean_module(id: str) -> Mean | None:
     return None
 
 
-class ApproximateGPRegressor(ApproximateGP):
+class ApproximateGPRegressor(ApproximateGP, Regressor, GaussianRegressor):
     def __init__(self, n_inducing_points: int, n_dim: int, kernel: str = "rq", mean: str = "constant") -> None:
         self.n_inducing_points: int = n_inducing_points
         self.n_dim: int = n_dim

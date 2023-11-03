@@ -1,4 +1,2 @@
 from .classifier_scaffold import ClassifierScaffold
-from .predictor_scaffold import PredictorScaffold
-from .gaussian_regressor_scaffold import GaussianRegressorScaffold
-from .regressor_scaffold import RegressorScaffold
+from .regression_scaffold.regression_scaffold import RegressionScaffold

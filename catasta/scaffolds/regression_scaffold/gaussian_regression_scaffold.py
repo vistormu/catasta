@@ -12,18 +12,18 @@ from gpytorch.distributions import MultivariateNormal
 
 from vclog import Logger
 
-from ..datasets import RegressorDataset
-from ..entities import EvalInfo
+from ...datasets import RegressionDataset
+from ...entities import RegressionEvalInfo, RegressionTrainInfo, RegressionPrediction
 
 
-class GaussianRegressorScaffold:
-    def __init__(self, model: Module, dataset: RegressorDataset) -> None:
+class GaussianRegressionScaffold:
+    def __init__(self, model: Module, dataset: RegressionDataset) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
 
         self.model: Module = model.to(self.device)
         self.likelihood = GaussianLikelihood().to(self.device)
-        self.dataset: RegressorDataset = dataset
+        self.dataset: RegressionDataset = dataset
 
         self.logger: Logger = Logger("catasta")
         self.logger.info(f"using device: {self.device}")
@@ -35,7 +35,7 @@ class GaussianRegressorScaffold:
               batch_size: int = 32,
               train_split: float = 0.8,
               lr: float = 1e-3,
-              ) -> np.ndarray:
+              ) -> RegressionTrainInfo:
         self.model.train()
         self.likelihood.train()
 
@@ -70,14 +70,14 @@ class GaussianRegressorScaffold:
 
                 self.logger.info(f"epoch {i}/{epochs} | {int((i/epochs)*100+(j/len(data_loader))*100/epochs)}% | loss: {loss.item():.4f}", flush=True)
 
-            losses.append(np.mean(batch_losses))
+            losses.append(np.mean(batch_losses).astype(float))
 
         self.logger.info(f'epoch {epochs}/{epochs} | 100% | loss: {np.min(losses):.4f}')
 
-        return np.array(losses)
+        return RegressionTrainInfo(np.array(losses))
 
     @ torch.no_grad()
-    def predict(self, input: np.ndarray | Tensor) -> tuple[np.ndarray, np.ndarray]:
+    def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
         self.model.eval()
         self.likelihood.eval()
 
@@ -89,10 +89,10 @@ class GaussianRegressorScaffold:
         mean: np.ndarray = output.mean.cpu().numpy()
         std: np.ndarray = output.stddev.cpu().numpy()
 
-        return mean, std
+        return RegressionPrediction(mean, std)
 
     @ torch.no_grad()
-    def evaluate(self) -> EvalInfo:
+    def evaluate(self) -> RegressionEvalInfo:
         test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * self.train_split)+1:]
         test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.train_split)+1:]
 
@@ -102,8 +102,9 @@ class GaussianRegressorScaffold:
         means: np.ndarray = np.array([])
         stds: np.ndarray = np.array([])
         for x_batch, _ in data_loader:
-            mean, std = self.predict(x_batch)
-            means = np.concatenate([means, mean])
-            stds = np.concatenate([stds, std])
+            output: RegressionPrediction = self.predict(x_batch)
+            means = np.concatenate([means, output.prediction])
+            if output.stds is not None:
+                stds = np.concatenate([stds, output.stds])
 
-        return EvalInfo(test_x, test_y, means, stds)
+        return RegressionEvalInfo(test_x, test_y, means, stds)

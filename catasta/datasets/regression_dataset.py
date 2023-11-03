@@ -16,9 +16,9 @@ def sliding_window(x: np.ndarray, n_dim: int) -> np.ndarray:
     return inputs_tiled[:-n_dim+1, :]
 
 
-class RegressorDataset(Dataset):
+class RegressionDataset(Dataset):
     '''
-    `RegressorDataset` is a dataset that loads data from a directory of CSV files. Each CSV file must have two columns: `input` and `output`.
+    `RegressionDataset` is a dataset that loads data from a directory of CSV files. Each CSV file must have two columns: `input` and `output`.
     '''
 
     def __init__(self, *,
