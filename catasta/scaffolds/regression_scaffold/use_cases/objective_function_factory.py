@@ -1,0 +1,18 @@
+from torch.nn import Module
+
+from gpytorch.mlls import (
+    MarginalLogLikelihood,
+    VariationalELBO,
+    PredictiveLogLikelihood,
+    VariationalMarginalLogLikelihood,
+)
+
+
+def get_objective_function(id: str, model: Module, likelihood: Module, num_data: int) -> MarginalLogLikelihood | None:
+    match id.lower():
+        case "variational_elbo":
+            return VariationalELBO(likelihood, model, num_data=num_data)
+        case "predictive_log":
+            return PredictiveLogLikelihood(likelihood, model, num_data=num_data)
+        case "variational_marginal_log":
+            return VariationalMarginalLogLikelihood(likelihood, model, num_data=num_data)

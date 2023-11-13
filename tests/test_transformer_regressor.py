@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 from catasta.models import TransformerRegressor
 from catasta.datasets import RegressionDataset
@@ -9,14 +10,16 @@ from vclog import Logger
 
 
 def main() -> None:
-    n_dim: int = 32
-    dataset = RegressionDataset(root="tests/data/steps/", n_dim=n_dim)
+    n_dim: int = 16
+    dataset = RegressionDataset(root="tests/data/steps/", context_length=n_dim, prediction_length=n_dim)
     model = TransformerRegressor(
-        d_model=n_dim,
-        n_heads=8,
-        n_encoder_layers=6,
-        n_decoder_layers=6,
-        dim_feedforward=2048,
+        input_dim=n_dim,
+        output_dim=n_dim,
+        d_model=64,
+        n_heads=2,
+        n_encoder_layers=2,
+        n_decoder_layers=2,
+        dim_feedforward=128,
     )
 
     scaffold = RegressionScaffold(
@@ -37,6 +40,10 @@ def main() -> None:
                  f"min eval loss: {np.min(train_info.eval_loss):.4f}")  # type: ignore
 
     info: RegressionEvalInfo = scaffold.evaluate()
+
+    plt.plot(info.predicted, label="predictions")
+    plt.plot(info.real, label="real")
+    plt.show()
 
     Logger.debug(info)
 

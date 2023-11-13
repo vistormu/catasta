@@ -4,26 +4,38 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader, Subset
-from torch.optim import Adam
+from torch.optim import Optimizer
+
+from torch.distributions import Distribution
 
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.mlls import VariationalELBO
+from gpytorch.mlls import MarginalLogLikelihood
 from gpytorch.distributions import MultivariateNormal
 
 from vclog import Logger
 
+from .regression_scaffold_interface import IRegressionScaffold
+from .use_cases import get_optimizer, get_objective_function
 from ...datasets import RegressionDataset
 from ...entities import RegressionEvalInfo, RegressionTrainInfo, RegressionPrediction
 
 
-class GaussianRegressionScaffold:
-    def __init__(self, model: Module, dataset: RegressionDataset) -> None:
+class GaussianRegressionScaffold(IRegressionScaffold):
+    def __init__(self, *,
+                 model: Module,
+                 dataset: RegressionDataset,
+                 optimizer: str = "adam",
+                 loss_function: str = "variational_elbo",
+                 ) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
 
         self.model: Module = model.to(self.device)
         self.likelihood = GaussianLikelihood().to(self.device)
         self.dataset: RegressionDataset = dataset
+
+        self.optimizer_id: str = optimizer
+        self.loss_function_id: str = loss_function
 
         self.logger: Logger = Logger("catasta")
         self.logger.info(f"using device: {self.device}")
@@ -44,12 +56,13 @@ class GaussianRegressionScaffold:
         train_dataset: Subset = Subset(self.dataset, range(int(len(self.dataset) * train_split)))
         data_loader: DataLoader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
-        optimizer = Adam([
-            {'params': self.model.parameters()},
-            {'params': self.likelihood.parameters()},
-        ], lr=lr)
+        optimizer: Optimizer | None = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
+        if optimizer is None:
+            raise ValueError(f"invalid optimizer id: {self.optimizer_id}")
 
-        mll = VariationalELBO(self.likelihood, self.model, num_data=len(train_dataset))
+        mll: MarginalLogLikelihood | None = get_objective_function(self.loss_function_id, self.model, self.likelihood, len(train_dataset))
+        if mll is None:
+            raise ValueError(f"invalid loss function id: {self.loss_function_id}")
 
         losses: list[float] = []
         for i in range(epochs):
@@ -60,7 +73,7 @@ class GaussianRegressionScaffold:
                 x_batch = x_batch.to(self.device, dtype=self.dtype)
                 y_batch = y_batch.to(self.device, dtype=self.dtype)
 
-                output: Tensor = self.model(x_batch)
+                output: MultivariateNormal = self.model(x_batch)
 
                 loss: Tensor = -mll(output, y_batch)  # type: ignore
                 batch_losses.append(loss.item())
@@ -76,7 +89,7 @@ class GaussianRegressionScaffold:
 
         return RegressionTrainInfo(np.array(losses))
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
         self.model.eval()
         self.likelihood.eval()
@@ -84,17 +97,17 @@ class GaussianRegressionScaffold:
         input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
         input_tensor = input_tensor.to(self.device, dtype=self.dtype)
 
-        output: MultivariateNormal = self.model(input_tensor)
+        output: Distribution = self.likelihood(self.model(input_tensor))
 
         mean: np.ndarray = output.mean.cpu().numpy()
         std: np.ndarray = output.stddev.cpu().numpy()
 
         return RegressionPrediction(mean, std)
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
         test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * self.train_split)+1:]
-        test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.train_split)+1:]
+        test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.train_split)+1:].flatten()
 
         test_dataset = Subset(self.dataset, range(int(len(self.dataset) * self.train_split)+1, len(self.dataset)))
         data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
