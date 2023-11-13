@@ -1,4 +1,4 @@
-# Catasta: Streanlined Model Experimentation
+# Catasta: Streamlined Model Experimentation
 
 <p align="center">
     <img style="width: 40%" src="assets/catasta.svg">

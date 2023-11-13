@@ -1,10 +1,8 @@
 from torch import Tensor
 from torch.nn import Module, Linear, Sequential, ReLU, BatchNorm1d, Dropout
 
-from .regressor import Regressor, VanillaRegressor
 
-
-class FeedforwardRegressor(Regressor, VanillaRegressor):
+class FeedforwardRegressor(Module):
     def __init__(self, *,
                  input_dim: int,
                  hidden_dims: list[int],

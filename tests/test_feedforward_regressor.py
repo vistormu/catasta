@@ -10,7 +10,7 @@ from vclog import Logger
 
 def main() -> None:
     n_dim: int = 20
-    dataset = RegressionDataset(root="tests/data/steps/", n_dim=n_dim)
+    dataset = RegressionDataset(root="tests/data/steps/", context_length=n_dim)
     model = FeedforwardRegressor(
         input_dim=n_dim,
         hidden_dims=[64, 32, 16],

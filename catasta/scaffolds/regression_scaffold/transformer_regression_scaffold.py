@@ -15,7 +15,7 @@ from ...entities import RegressionEvalInfo, RegressionPrediction, RegressionTrai
 from .use_cases import get_optimizer, get_loss_function
 
 
-class VanillaRegressionScaffold(IRegressionScaffold):
+class TransformerRegressionScaffold(IRegressionScaffold):
     '''
     A scaffold for training a regression model.
 
@@ -101,7 +101,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
                 x_batch: Tensor = x_batch.to(self.device, dtype=self.dtype)
                 y_batch: Tensor = y_batch.to(self.device, dtype=self.dtype)
 
-                output: Tensor = self.model(x_batch)
+                output: Tensor = self.model(x_batch, y_batch)
 
                 loss: Tensor = loss_function(output, y_batch)
                 loss.backward()
@@ -127,7 +127,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         return RegressionTrainInfo(np.array(train_losses), np.array(eval_losses))
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
         self.model.eval()
 
@@ -138,7 +138,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         return RegressionPrediction(output.cpu().numpy())
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
         test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * self.train_split)+1:]
         test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.train_split)+1:].flatten()
@@ -153,7 +153,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         return RegressionEvalInfo(test_x, test_y, predictions)
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def _estimate_loss(self, val_dataset: Dataset, batch_size: int) -> float:
         self.model.eval()
 
@@ -168,7 +168,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
             x_batch: Tensor = x_batch.to(self.device, dtype=self.dtype)
             y_batch: Tensor = y_batch.to(self.device, dtype=self.dtype)
 
-            output: Tensor = self.model(x_batch)
+            output: Tensor = self.model(x_batch, y_batch)
 
             loss: Tensor = loss_function(output, y_batch)
 

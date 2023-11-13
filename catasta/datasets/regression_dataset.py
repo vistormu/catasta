@@ -7,85 +7,85 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 
-def sliding_window(x: np.ndarray, n_dim: int) -> np.ndarray:
-    inputs_tiled: np.ndarray = np.tile(x, (n_dim, 1)).T
-
-    for i in range(n_dim):
-        inputs_tiled[:, i] = np.roll(inputs_tiled[:, i], -i)
-
-    return inputs_tiled[:-n_dim+1, :]
-
-
 class RegressionDataset(Dataset):
-    '''
-    `RegressionDataset` is a dataset that loads data from a directory of CSV files. Each CSV file must have two columns: `input` and `output`.
-    '''
-
     def __init__(self, *,
                  root: str,
-                 n_dim: int = 1,
+                 context_length: int = 1,
+                 prediction_length: int = 1,
                  ) -> None:
-        '''
-        Parameters
-        ----------
-        root : str
-            The root directory of the dataset.
-        n_dim : int, optional
-            The number of dimensions of the input data. If `n_dim` is greater than 1, the input data will be converted to a sliding window of size `n_dim`.
+        self.root: str = root
 
-        Raises
-        ------
-        ValueError
-            If `root` is not a directory.
-        ValueError
-            If `n_dim` is less than 1.
-        ValueError
-            If any CSV file in `root` does not have the columns `input` and `output`.
-        ValueError
-            If any CSV file in `root` does not have the same number of rows for `input` and `output`.
-        ValueError
-            If `root` does not contain at least one CSV file.
+        self.context_length: int = context_length
+        self.prediction_length: int = prediction_length
 
-        Examples
-        --------
-        >>> dataset: ModelDataset = ModelDataset(root="data/", n_dim=4)
-        '''
+        self.inputs: np.ndarray = np.array([])
+        self.outputs: np.ndarray = np.array([])
 
-        if not os.path.isdir(root):
+        self._check_arguments()
+        inputs, outputs = self._get_data()
+        self._prepare_data(inputs, outputs)
+
+    def _check_arguments(self) -> None:
+        if not os.path.isdir(self.root):
             raise ValueError(f"root must be a directory")
-        if n_dim < 1:
-            raise ValueError(f"n_dim must be greater than 0")
+        if self.context_length < 1:
+            raise ValueError(f"context_length must be at least 1")
+        if self.prediction_length < 1:
+            raise ValueError(f"prediction_length must be at least 1")
 
+    def _get_data(self) -> tuple[list[np.ndarray], list[np.ndarray]]:
         inputs: list[np.ndarray] = []
         outputs: list[np.ndarray] = []
+
         filename_counter: int = 0
-        for filename in os.listdir(root):
+        for filename in os.listdir(self.root):
             if not filename.endswith(".csv"):
                 continue
             filename_counter += 1
 
-            data_frame: pd.DataFrame = pd.read_csv(root + filename)
+            data_frame: pd.DataFrame = pd.read_csv(self.root + filename)
 
             if 'input' not in data_frame.columns or 'output' not in data_frame.columns:
                 raise ValueError(f"CSV file {filename} must have the columns 'input' and 'output'")
 
-            input: np.ndarray = data_frame['input'].to_numpy().flatten()
-            output: np.ndarray = data_frame['output'].to_numpy().flatten()
+            inputs.append(data_frame['input'].to_numpy().flatten())
+            outputs.append(data_frame['output'].to_numpy().flatten())
 
-            if len(input) != len(output):
+            if len(inputs[-1]) != len(outputs[-1]):
                 raise ValueError(f"CSV file {filename} must have the same number of rows for 'input' and 'output'")
 
-            inputs.append(input.reshape(-1, 1) if n_dim == 1 else sliding_window(input, n_dim))
-            outputs.append(output if n_dim == 1 else output[-inputs[-1].shape[0]:])
+            if len(inputs[-1]) < self.context_length + self.prediction_length:
+                raise ValueError(f"CSV file {filename} must have at least {self.context_length + self.prediction_length} rows")
 
         if filename_counter == 0:
-            raise ValueError(f"Directory {root} must contain at least one CSV file")
+            raise ValueError(f"Directory {self.root} must contain at least one CSV file")
 
-        self.inputs: np.ndarray = np.concatenate(inputs)
-        self.outputs: np.ndarray = np.concatenate(outputs)
+        return inputs, outputs
+
+    def _prepare_data(self, inputs: list[np.ndarray], outputs: list[np.ndarray]) -> None:
+        reshaped_inputs: list[np.ndarray] = []
+        reshaped_outputs: list[np.ndarray] = []
+
+        for input, output in zip(inputs, outputs):
+            reshaped_input: list[np.ndarray] = []
+            reshaped_output: list[np.ndarray] = []
+
+            n_iterations: int = len(input) - self.context_length - self.prediction_length + 2
+            for i in range(n_iterations):
+                context: np.ndarray = input[i: i+self.context_length]
+                reshaped_input.append(context)
+
+                prediction: np.ndarray = output[i+self.context_length-1: i+self.context_length+self.prediction_length-1]
+                reshaped_output.append(prediction)
+
+            reshaped_inputs.append(np.array(reshaped_input))
+            reshaped_outputs.append(np.array(reshaped_output))
+
+        self.inputs: np.ndarray = np.concatenate(reshaped_inputs)
+        self.outputs: np.ndarray = np.concatenate(reshaped_outputs)
 
     def __len__(self) -> int:
         return self.inputs.shape[0]
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        return torch.tensor(self.inputs[index]), torch.tensor(self.outputs[index])
+        return torch.tensor(self.inputs[index]), torch.tensor(self.outputs[index]).squeeze()
