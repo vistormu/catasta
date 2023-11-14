@@ -9,7 +9,6 @@ class IRegressionScaffold(ABC):
     def train(self, *,
               epochs: int,
               batch_size: int,
-              train_split: float,
               lr: float,
               ) -> RegressionTrainInfo:
         pass

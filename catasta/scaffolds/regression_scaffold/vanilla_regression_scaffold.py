@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.utils.data import DataLoader, Subset, Dataset
+from torch.utils.data import DataLoader
 from torch.optim import Optimizer
 from torch.nn.modules.loss import _Loss
 
@@ -64,17 +64,12 @@ class VanillaRegressionScaffold(IRegressionScaffold):
         self.logger: Logger = Logger("catasta")
         self.logger.info(f"using device: {self.device}")
 
-        self.train_split: float = 0.8  # TMP
-
     def train(self, *,
               epochs: int = 100,
               batch_size: int = 128,
-              train_split: float = 0.8,
               lr: float = 1e-3,
               ) -> RegressionTrainInfo:
         self.model.train()
-
-        self.train_split = train_split  # TMP
 
         optimizer: Optimizer | None = get_optimizer(self.optimmizer_id, self.model, lr)
         if optimizer is None:
@@ -84,9 +79,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
         if loss_function is None:
             raise ValueError(f"invalid loss function id: {self.loss_function_id}")
 
-        train_dataset: Subset = Subset(self.dataset, range(int(len(self.dataset) * train_split)))
-        val_dataset: Subset = Subset(self.dataset, range(int(len(self.dataset) * train_split), len(self.dataset)))
-        data_loader: DataLoader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+        data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
 
         best_loss: float = np.inf
         best_model_state_dict: dict = self.model.state_dict()
@@ -114,7 +107,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
             train_losses.append(np.mean(batch_train_losses).astype(float))
 
-            eval_loss: float = self._estimate_loss(val_dataset, batch_size=batch_size)
+            eval_loss: float = self._estimate_loss(batch_size)
             eval_losses.append(eval_loss)
 
             if eval_loss < best_loss:
@@ -127,7 +120,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         return RegressionTrainInfo(np.array(train_losses), np.array(eval_losses))
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
         self.model.eval()
 
@@ -138,13 +131,15 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         return RegressionPrediction(output.cpu().numpy())
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
-        test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * self.train_split)+1:]
-        test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.train_split)+1:].flatten()
+        test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * (self.dataset.splits[0]+self.dataset.splits[1])):]
+        test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * (self.dataset.splits[0]+self.dataset.splits[1])):].flatten()
 
-        test_dataset = Subset(self.dataset, range(int(len(self.dataset) * self.train_split)+1, len(self.dataset)))
-        data_loader: DataLoader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+        if self.dataset.test is None:
+            raise ValueError(f"test split must be greater than 0")
+
+        data_loader: DataLoader = DataLoader(self.dataset.test, batch_size=1, shuffle=False)
 
         predictions: np.ndarray = np.array([])
         for x_batch, _ in data_loader:
@@ -153,15 +148,18 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         return RegressionEvalInfo(test_x, test_y, predictions)
 
-    @ torch.no_grad()
-    def _estimate_loss(self, val_dataset: Dataset, batch_size: int) -> float:
+    @torch.no_grad()
+    def _estimate_loss(self, batch_size: int) -> float:
+        if self.dataset.validation is None:
+            return np.inf
+
         self.model.eval()
 
         loss_function: _Loss | None = get_loss_function(self.loss_function_id)
         if loss_function is None:
             raise ValueError(f"invalid loss function id: {self.loss_function_id}")
 
-        data_loader: DataLoader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        data_loader: DataLoader = DataLoader(self.dataset.validation, batch_size=batch_size, shuffle=False)
 
         losses: list[float] = []
         for x_batch, y_batch in data_loader:
