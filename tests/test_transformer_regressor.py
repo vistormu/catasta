@@ -11,7 +11,12 @@ from vclog import Logger
 
 def main() -> None:
     n_dim: int = 16
-    dataset = RegressionDataset(root="tests/data/steps/", context_length=n_dim, prediction_length=n_dim)
+    dataset = RegressionDataset(
+        root="tests/data/steps/",
+        context_length=n_dim,
+        prediction_length=n_dim,
+        splits=(0.8, 0.1, 0.1),
+    )
     model = TransformerRegressor(
         input_dim=n_dim,
         output_dim=n_dim,
@@ -21,7 +26,6 @@ def main() -> None:
         n_decoder_layers=2,
         dim_feedforward=128,
     )
-
     scaffold = RegressionScaffold(
         model=model,
         dataset=dataset,
@@ -32,7 +36,6 @@ def main() -> None:
     train_info: RegressionTrainInfo = scaffold.train(
         epochs=100,
         batch_size=256,
-        train_split=6/7,
         lr=1e-3,
     )
 

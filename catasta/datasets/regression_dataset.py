@@ -4,7 +4,7 @@ import numpy as np
 
 import torch
 from torch import Tensor
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 
 
 class RegressionDataset(Dataset):
@@ -12,11 +12,12 @@ class RegressionDataset(Dataset):
                  root: str,
                  context_length: int = 1,
                  prediction_length: int = 1,
+                 splits: tuple[float, float, float] = (0.8, 0.1, 0.1),
                  ) -> None:
         self.root: str = root
-
         self.context_length: int = context_length
         self.prediction_length: int = prediction_length
+        self.splits: tuple[float, float, float] = splits
 
         self.inputs: np.ndarray = np.array([])
         self.outputs: np.ndarray = np.array([])
@@ -25,6 +26,13 @@ class RegressionDataset(Dataset):
         inputs, outputs = self._get_data()
         self._prepare_data(inputs, outputs)
 
+        train_index: int = int(self.splits[0] * len(self))
+        validation_index: int = train_index + int(self.splits[1] * len(self))
+        test_index: int = validation_index + int(self.splits[2] * len(self))
+        self.train: Subset = Subset(self, range(train_index))
+        self.validation: Subset | None = Subset(self, range(train_index, validation_index)) if splits[1] > 0 else None
+        self.test: Subset | None = Subset(self, range(validation_index, test_index)) if splits[2] > 0 else None
+
     def _check_arguments(self) -> None:
         if not os.path.isdir(self.root):
             raise ValueError(f"root must be a directory")
@@ -32,6 +40,12 @@ class RegressionDataset(Dataset):
             raise ValueError(f"context_length must be at least 1")
         if self.prediction_length < 1:
             raise ValueError(f"prediction_length must be at least 1")
+        if sum(self.splits) != 1:
+            raise ValueError(f"splits must sum to 1")
+        if self.splits[1] == 0 and self.splits[2] == 0:
+            raise ValueError(f"at least a validation or test split must be greater than 0")
+        if self.splits[0] == 0:
+            raise ValueError(f"train split must be greater than 0")
 
     def _get_data(self) -> tuple[list[np.ndarray], list[np.ndarray]]:
         inputs: list[np.ndarray] = []

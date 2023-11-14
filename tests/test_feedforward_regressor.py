@@ -10,7 +10,12 @@ from vclog import Logger
 
 def main() -> None:
     n_dim: int = 20
-    dataset = RegressionDataset(root="tests/data/steps/", context_length=n_dim)
+    dataset = RegressionDataset(
+        root="tests/data/steps/",
+        context_length=n_dim,
+        prediction_length=1,
+        splits=(0.8, 0.1, 0.1),
+    )
     model = FeedforwardRegressor(
         input_dim=n_dim,
         hidden_dims=[64, 32, 16],
@@ -28,7 +33,6 @@ def main() -> None:
     train_info: RegressionTrainInfo = scaffold.train(
         epochs=100,
         batch_size=256,
-        train_split=6/7,
         lr=1e-3,
     )
 

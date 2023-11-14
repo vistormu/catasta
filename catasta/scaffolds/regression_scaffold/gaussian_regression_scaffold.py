@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 from torch.optim import Optimizer
 
 from torch.distributions import Distribution
@@ -40,27 +40,21 @@ class GaussianRegressionScaffold(IRegressionScaffold):
         self.logger: Logger = Logger("catasta")
         self.logger.info(f"using device: {self.device}")
 
-        self.train_split: float = 0.8
-
     def train(self,
               epochs: int = 100,
               batch_size: int = 32,
-              train_split: float = 0.8,
               lr: float = 1e-3,
               ) -> RegressionTrainInfo:
         self.model.train()
         self.likelihood.train()
 
-        self.train_split = train_split
-
-        train_dataset: Subset = Subset(self.dataset, range(int(len(self.dataset) * train_split)))
-        data_loader: DataLoader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+        data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
 
         optimizer: Optimizer | None = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
         if optimizer is None:
             raise ValueError(f"invalid optimizer id: {self.optimizer_id}")
 
-        mll: MarginalLogLikelihood | None = get_objective_function(self.loss_function_id, self.model, self.likelihood, len(train_dataset))
+        mll: MarginalLogLikelihood | None = get_objective_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))
         if mll is None:
             raise ValueError(f"invalid loss function id: {self.loss_function_id}")
 
@@ -106,11 +100,13 @@ class GaussianRegressionScaffold(IRegressionScaffold):
 
     @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
-        test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * self.train_split)+1:]
-        test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.train_split)+1:].flatten()
+        test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * self.dataset.splits[0]):]
+        test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.dataset.splits[0]):].flatten()
 
-        test_dataset = Subset(self.dataset, range(int(len(self.dataset) * self.train_split)+1, len(self.dataset)))
-        data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+        if self.dataset.test is None:
+            raise ValueError(f"test split must be greater than 0")
+
+        data_loader = DataLoader(self.dataset.test, batch_size=1, shuffle=False)
 
         means: np.ndarray = np.array([])
         stds: np.ndarray = np.array([])
