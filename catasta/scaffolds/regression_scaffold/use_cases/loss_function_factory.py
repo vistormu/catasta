@@ -1,5 +1,10 @@
-from torch.nn import MSELoss, L1Loss, SmoothL1Loss, HuberLoss
 from torch.nn.modules.loss import _Loss
+from torch.nn import (
+    MSELoss,
+    L1Loss,
+    SmoothL1Loss,
+    HuberLoss,
+)
 
 
 def get_loss_function(id: str) -> _Loss | None:

@@ -22,7 +22,6 @@ def main() -> None:
         output_dim=1,
         dropout=0.1,
     )
-
     scaffold = RegressionScaffold(
         model=model,
         dataset=dataset,

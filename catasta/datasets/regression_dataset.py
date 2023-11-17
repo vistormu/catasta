@@ -40,8 +40,8 @@ class RegressionDataset(Dataset):
             raise ValueError(f"context_length must be at least 1")
         if self.prediction_length < 1:
             raise ValueError(f"prediction_length must be at least 1")
-        if sum(self.splits) != 1:
-            raise ValueError(f"splits must sum to 1")
+        if round(sum(self.splits), 4) != 1:
+            raise ValueError(f"splits must sum to 1. Found {sum(self.splits)}")
         if self.splits[1] == 0 and self.splits[2] == 0:
             raise ValueError(f"at least a validation or test split must be greater than 0")
         if self.splits[0] == 0:
@@ -69,7 +69,7 @@ class RegressionDataset(Dataset):
                 raise ValueError(f"CSV file {filename} must have the same number of rows for 'input' and 'output'")
 
             if len(inputs[-1]) < self.context_length + self.prediction_length:
-                raise ValueError(f"CSV file {filename} must have at least {self.context_length + self.prediction_length} rows")
+                raise ValueError(f"CSV file {filename} has {len(inputs[-1])} rows, and the sum of the context and prediction lengths is {self.context_length + self.prediction_length}")
 
         if filename_counter == 0:
             raise ValueError(f"Directory {self.root} must contain at least one CSV file")

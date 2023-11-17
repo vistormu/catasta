@@ -1,5 +1,18 @@
 from torch.nn import Module
-from torch.optim import Adam, SGD, AdamW, Optimizer
+from torch.optim import (
+    Optimizer,
+    Adam,
+    SGD,
+    AdamW,
+    LBFGS,
+    RMSprop,
+    Rprop,
+    Adadelta,
+    Adagrad,
+    Adamax,
+    ASGD,
+    SparseAdam,
+)
 
 
 def get_optimizer(id: str, model: Module | list[Module], lr: float) -> Optimizer | None:
@@ -17,5 +30,21 @@ def get_optimizer(id: str, model: Module | list[Module], lr: float) -> Optimizer
             return SGD(parameters, lr=lr)
         case "adamw":
             return AdamW(parameters, lr=lr)
+        case "lbfgs":
+            return LBFGS(parameters, lr=lr)
+        case "rmsprop":
+            return RMSprop(parameters, lr=lr)
+        case "rprop":
+            return Rprop(parameters, lr=lr)
+        case "adadelta":
+            return Adadelta(parameters, lr=lr)
+        case "adagrad":
+            return Adagrad(parameters, lr=lr)
+        case "adamax":
+            return Adamax(parameters, lr=lr)
+        case "asgd":
+            return ASGD(parameters, lr=lr)
+        case "sparseadam":
+            return SparseAdam(parameters, lr=lr)
 
     return None
