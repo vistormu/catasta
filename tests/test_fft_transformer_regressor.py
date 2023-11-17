@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from catasta.models import TransformerRegressor
+from catasta.models import FFTTransformerRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
 from catasta.entities import RegressionEvalInfo, RegressionTrainInfo
@@ -19,28 +19,28 @@ def main() -> None:
         prediction_length=1,
         splits=(6/7, 1/7, 0.0),
     )
-    # 256, 4, 1, 64, 2, 2, 128, 64
-    # 256, 4, 1, 16, 2, 2, 32, 64
-    model = TransformerRegressor(
+    # 256, //4, 1, 64, 2, 2, 128
+    # 256, //4, 1, 16, 2, 2, 32
+    model = FFTTransformerRegressor(
         context_length=n_dim,
-        n_patches=8,
+        n_patches=16,
         output_dim=1,
         d_model=16,
         n_heads=2,
         n_layers=2,
         feedforward_dim=32,
-        head_dim=4,
+        head_dim=16,
     )
     scaffold = RegressionScaffold(
         model=model,
         dataset=dataset,
         optimizer="adamw",
-        loss_function="smooth_l1",
+        loss_function="mse",
     )
 
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=200,
-        batch_size=32,
+        epochs=100,
+        batch_size=64,
         lr=1e-3,
     )
 

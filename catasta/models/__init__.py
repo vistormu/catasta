@@ -3,3 +3,4 @@ from .classifiers.transformer_signal_classifier import TransformerSignalClassifi
 from .regressors.approximate_gp_regressor import ApproximateGPRegressor
 from .regressors.feedforward_regressor import FeedforwardRegressor
 from .regressors.transformer_regressor import TransformerRegressor
+from .regressors.fft_transformer_regressor import FFTTransformerRegressor
