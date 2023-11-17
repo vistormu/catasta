@@ -10,42 +10,54 @@ from vclog import Logger
 
 
 def main() -> None:
-    n_dim: int = 16
+    n_dim: int = 64
     dataset = RegressionDataset(
-        root="tests/data/steps/",
+        # root="tests/data/nylon_carmen/strain/",
+        root="tests/data/wire_lisbeth/strain/",
+        # root="tests/data/steps/",
         context_length=n_dim,
-        prediction_length=n_dim,
-        splits=(0.8, 0.1, 0.1),
+        prediction_length=1,
+        splits=(6/7, 1/7, 0.0),
     )
+    # 256, //4, 1, 64, 2, 2, 128
+    # 256, //4, 1, 16, 2, 2, 32
     model = TransformerRegressor(
-        input_dim=n_dim,
-        output_dim=n_dim,
-        d_model=64,
+        context_length=n_dim,
+        patch_size=n_dim // 4,
+        output_dim=1,
+        d_model=16,
         n_heads=2,
-        n_encoder_layers=2,
-        n_decoder_layers=2,
-        dim_feedforward=128,
+        n_layers=2,
+        feedforward_dim=32,
     )
     scaffold = RegressionScaffold(
         model=model,
         dataset=dataset,
         optimizer="adamw",
-        loss_function="huber",
+        loss_function="smooth_l1",
     )
 
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=100,
-        batch_size=256,
+        epochs=200,
+        batch_size=32,
         lr=1e-3,
     )
+
+    plt.figure(figsize=(30, 20))
+    plt.plot(train_info.train_loss, label="train loss", color="black")
+    plt.plot(train_info.eval_loss, label="eval loss", color="red")
+    plt.legend()
+    plt.show()
 
     Logger.debug(f"min train loss: {np.min(train_info.train_loss):.4f}, "
                  f"min eval loss: {np.min(train_info.eval_loss):.4f}")  # type: ignore
 
     info: RegressionEvalInfo = scaffold.evaluate()
 
-    plt.plot(info.predicted, label="predictions")
-    plt.plot(info.real, label="real")
+    plt.figure(figsize=(30, 20))
+    plt.plot(info.real, label="real", color="black")
+    plt.plot(info.predicted, label="predictions", color="red")
+    plt.legend()
     plt.show()
 
     Logger.debug(info)

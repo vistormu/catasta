@@ -1,5 +1,5 @@
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 from catasta.models import ApproximateGPRegressor
 from catasta.datasets import RegressionDataset
@@ -12,10 +12,13 @@ from vclog import Logger
 def main() -> None:
     n_inducing_points: int = 128
     n_dim: int = 20
+    dataset_root: str = "tests/data/steps/"
+    # dataset_root: str = "tests/data/data_resistance_strain/strain/"
     dataset = RegressionDataset(
-        root="tests/data/steps/",
+        root=dataset_root,
         context_length=n_dim,
-        splits=(0.8, 0.0, 0.2),
+        prediction_length=1,
+        splits=(0.9, 0.0, 0.1),
     )
     model = ApproximateGPRegressor(
         n_inducing_points=n_inducing_points,
@@ -23,7 +26,6 @@ def main() -> None:
         kernel="rq",
         mean="zero"
     )
-
     scaffold = RegressionScaffold(
         model=model,
         dataset=dataset,
@@ -41,9 +43,12 @@ def main() -> None:
 
     info: RegressionEvalInfo = scaffold.evaluate()
 
-    # plt.plot(info.predicted, label="predictions")
-    # plt.plot(info.real, label="real")
-    # plt.show()
+    plt.figure(figsize=(30, 20))
+    plt.plot(info.predicted, label="predictions", color="red")
+    plt.plot(info.real, label="real", color="black")
+    plt.fill_between(range(len(info.predicted)), info.predicted-1*info.stds, info.predicted+1*info.stds, color="red", alpha=0.2)
+    plt.legend()
+    plt.show()
 
     Logger.debug(info)
 

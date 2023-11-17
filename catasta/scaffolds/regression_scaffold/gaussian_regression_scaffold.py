@@ -100,8 +100,9 @@ class GaussianRegressionScaffold(IRegressionScaffold):
 
     @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
-        test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * self.dataset.splits[0]):]
-        test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * self.dataset.splits[0]):].flatten()
+        test_index: int = np.floor(len(self.dataset) * self.dataset.splits[0]).astype(int)
+        test_x: np.ndarray = self.dataset.inputs[test_index:]
+        test_y: np.ndarray = self.dataset.outputs[test_index:].flatten()
 
         if self.dataset.test is None:
             raise ValueError(f"test split must be greater than 0")

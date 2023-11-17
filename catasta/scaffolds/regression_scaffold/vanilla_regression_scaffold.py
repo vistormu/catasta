@@ -16,42 +16,12 @@ from .use_cases import get_optimizer, get_loss_function
 
 
 class VanillaRegressionScaffold(IRegressionScaffold):
-    '''
-    A scaffold for training a regression model.
-
-    Methods
-    -------
-    train -> ~catasta.entities.RegressionTrainInfo
-        Train the model.
-    predict -> ~catasta.entities.RegressionPrediction
-        Predict the output for the given input.
-    evaluate -> ~catasta.entities.RegressionEvalInfo
-        Evaluate the model on the test set.
-    '''
-
     def __init__(self, *,
                  model: Module,
                  dataset: RegressionDataset,
                  optimizer: str = "adam",
                  loss_function: str = "mse",
                  ) -> None:
-        '''
-        Parameters
-        ----------
-        model : ~catasta.model.Regressor
-            The model to train.
-        dataset : ~catasta.dataset.RegressionDataset
-            The dataset to train on.
-        optimizer : str, optional
-            The optimizer to use, by default "adam". Possible values are "adam", "sgd" and "adamw".
-        loss_function : str, optional
-            The loss function to use, by default "mse". Possible values are "mse", "l1", "smooth_l1" and "huber".
-
-        Raises
-        ------
-        ValueError
-            If an invalid optimizer or loss function is specified.
-        '''
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
 
@@ -81,7 +51,8 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
 
-        best_loss: float = np.inf
+        best_eval_loss: float = np.inf
+        eval_loss: float = np.inf
         best_model_state_dict: dict = self.model.state_dict()
 
         train_losses: list[float] = []
@@ -103,18 +74,19 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
                 batch_train_losses.append(loss.item())
 
-                self.logger.info(f"epoch {i}/{epochs} | {int((i/epochs)*100+(j/len(data_loader))*100/epochs)}% | train loss: {loss.item():.4f} | eval loss: {best_loss:.4f}", flush=True)
+                self.logger.info(
+                    f"epoch {i}/{epochs} | {int((i/epochs)*100+(j/len(data_loader))*100/epochs)}% | train loss: {loss.item():.4f} | eval loss: {eval_loss:.4f} | best eval loss: {best_eval_loss:.4f}", flush=True)
 
             train_losses.append(np.mean(batch_train_losses).astype(float))
 
-            eval_loss: float = self._estimate_loss(batch_size)
+            eval_loss = self._estimate_loss(batch_size)
             eval_losses.append(eval_loss)
 
-            if eval_loss < best_loss:
-                best_loss = eval_loss
+            if eval_loss < best_eval_loss:
+                best_eval_loss = eval_loss
                 best_model_state_dict = self.model.state_dict()
 
-        self.logger.info(f'epoch {epochs}/{epochs} | 100% | loss: {np.min(eval_losses):.4f}')
+        self.logger.info(f'epoch {epochs}/{epochs} | 100% | best eval loss: {np.min(eval_losses):.4f}')
 
         self.model.load_state_dict(best_model_state_dict)
 
@@ -133,11 +105,17 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
     @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
-        test_x: np.ndarray = self.dataset.inputs[int(len(self.dataset) * (self.dataset.splits[0]+self.dataset.splits[1])):]
-        test_y: np.ndarray = self.dataset.outputs[int(len(self.dataset) * (self.dataset.splits[0]+self.dataset.splits[1])):].flatten()
+        test_index: int = np.floor(len(self.dataset) * (self.dataset.splits[0]+self.dataset.splits[1])).astype(int)
 
-        if self.dataset.test is None:
-            raise ValueError(f"test split must be greater than 0")
+        if self.dataset.test is None and self.dataset.validation is not None:
+            Logger.warning("test split is empty, using validation split instead")
+            self.dataset.test = self.dataset.validation
+            test_index = np.floor(len(self.dataset) * self.dataset.splits[0]).astype(int)
+        else:
+            raise ValueError(f"cannot evaluate without a test split")
+
+        test_x: np.ndarray = self.dataset.inputs[test_index:]
+        test_y: np.ndarray = self.dataset.outputs[test_index:].flatten()
 
         data_loader: DataLoader = DataLoader(self.dataset.test, batch_size=1, shuffle=False)
 
@@ -145,6 +123,11 @@ class VanillaRegressionScaffold(IRegressionScaffold):
         for x_batch, _ in data_loader:
             output: RegressionPrediction = self.predict(x_batch)
             predictions = np.concatenate((predictions, output.prediction.flatten()))
+
+        if len(predictions) != len(test_y):
+            min_len: int = min(len(predictions), len(test_y))
+            predictions = predictions[-min_len:]
+            test_y = test_y[-min_len:]
 
         return RegressionEvalInfo(test_x, test_y, predictions)
 
