@@ -162,3 +162,19 @@ class FFTTransformerRegressor(Module):
         x = self.linear_head(x).squeeze()
 
         return x
+
+    def encode(self, input: Tensor) -> Tensor:
+        input = rearrange(input, 'b s -> b 1 s')
+        freqs: Tensor = torch.view_as_real(fft(input))
+
+        x: Tensor = self.to_patch_embedding(input)
+        f: Tensor = self.to_freq_embedding(freqs)
+
+        x += posemb_sincos_1d(x)
+        f += posemb_sincos_1d(f)
+
+        x = torch.cat((x, f), dim=1)
+        x = self.transformer(x)
+        x = x.mean(dim=1)
+
+        return x

@@ -149,3 +149,14 @@ class TransformerRegressor(Module):
         x = self.linear_head(x).squeeze(1)
 
         return x
+
+    def encode(self, x: Tensor) -> Tensor:
+        x = rearrange(x, 'b s -> b 1 s')
+
+        x = self.to_patch_embedding(x)
+        x += posemb_sincos_1d(x)
+
+        x = self.transformer(x)
+        x = x.mean(dim=1)
+
+        return x

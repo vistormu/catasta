@@ -117,4 +117,10 @@ class GaussianRegressionScaffold(IRegressionScaffold):
             if output.stds is not None:
                 stds = np.concatenate([stds, output.stds])
 
+        if len(means) != len(test_y):
+            min_len: int = min(len(means), len(test_y))
+            means = means[-min_len:]
+            stds = stds[-min_len:]
+            test_y = test_y[-min_len:]
+
         return RegressionEvalInfo(test_x, test_y, means, stds)
