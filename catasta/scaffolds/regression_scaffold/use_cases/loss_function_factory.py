@@ -4,6 +4,8 @@ from torch.nn import (
     L1Loss,
     SmoothL1Loss,
     HuberLoss,
+    PoissonNLLLoss,
+    KLDivLoss,
 )
 
 
@@ -17,5 +19,9 @@ def get_loss_function(id: str) -> _Loss | None:
             return SmoothL1Loss()
         case "huber":
             return HuberLoss()
+        case "poisson":
+            return PoissonNLLLoss()
+        case "kl_div":
+            return KLDivLoss()
 
     return None

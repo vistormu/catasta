@@ -12,24 +12,24 @@ from vclog import Logger
 def main() -> None:
     n_dim: int = 256
     dataset = RegressionDataset(
-        root="tests/data/nylon_carmen/strain/",
-        # root="tests/data/wire_lisbeth/strain/",
+        # root="tests/data/nylon_carmen/strain/",
+        root="tests/data/wire_lisbeth/strain/",
         # root="tests/data/steps/",
         context_length=n_dim,
         prediction_length=1,
         splits=(6/7, 1/7, 0.0),
     )
-    # 256, //4, 1, 64, 2, 2, 128
-    # 256, //4, 1, 16, 2, 2, 32
+    # 256, 4, 1, 64, 2, 2, 128
+    # 256, 4, 1, 16, 2, 2, 32
     model = FFTTransformerRegressor(
         context_length=n_dim,
-        n_patches=16,
+        n_patches=8,
         output_dim=1,
         d_model=16,
         n_heads=2,
         n_layers=2,
         feedforward_dim=32,
-        head_dim=16,
+        head_dim=4,
     )
     scaffold = RegressionScaffold(
         model=model,

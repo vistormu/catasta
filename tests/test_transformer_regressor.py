@@ -12,15 +12,15 @@ from vclog import Logger
 def main() -> None:
     n_dim: int = 256
     dataset = RegressionDataset(
-        root="tests/data/nylon_carmen/strain/",
-        # root="tests/data/wire_lisbeth/strain/",
+        # root="tests/data/nylon_carmen/strain/",
+        root="tests/data/wire_lisbeth/strain/",
         # root="tests/data/steps/",
         context_length=n_dim,
         prediction_length=1,
         splits=(6/7, 1/7, 0.0),
     )
     # 256, 4, 1, 64, 2, 2, 128, 64
-    # 256, 4, 1, 16, 2, 2, 32, 64
+    # 256, 4, 1, 16, 2, 2, 32, 4
     model = TransformerRegressor(
         context_length=n_dim,
         n_patches=8,
@@ -35,12 +35,12 @@ def main() -> None:
         model=model,
         dataset=dataset,
         optimizer="adamw",
-        loss_function="smooth_l1",
+        loss_function="mse",
     )
 
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=200,
-        batch_size=32,
+        epochs=100,
+        batch_size=64,
         lr=1e-3,
     )
 
