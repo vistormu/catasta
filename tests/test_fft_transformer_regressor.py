@@ -4,13 +4,13 @@ import matplotlib.pyplot as plt
 from catasta.models import FFTTransformerRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
-from catasta.entities import RegressionEvalInfo, RegressionTrainInfo
+from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo
 
 from vclog import Logger
 
 
 def main() -> None:
-    n_dim: int = 256
+    n_dim: int = 512
     dataset = RegressionDataset(
         # root="tests/data/nylon_carmen/strain/",
         root="tests/data/wire_lisbeth/strain/",
@@ -19,11 +19,11 @@ def main() -> None:
         prediction_length=1,
         splits=(6/7, 1/7, 0.0),
     )
-    # 256, 4, 1, 64, 2, 2, 128
-    # 256, 4, 1, 16, 2, 2, 32
+    # 1024, 4, 1, 16, 2, 2, 32, 4
+    # 512, 4, 1, 16, 2, 2, 32, 4
     model = FFTTransformerRegressor(
         context_length=n_dim,
-        n_patches=8,
+        n_patches=4,
         output_dim=1,
         d_model=16,
         n_heads=2,
@@ -38,10 +38,13 @@ def main() -> None:
         loss_function="mse",
     )
 
+    # 200, 64, 1e-3, 5e-4
+    # 100, 128, 1e-3, 5e-4
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=100,
-        batch_size=64,
+        epochs=500,
+        batch_size=128,
         lr=1e-3,
+        final_lr=5e-4,
     )
 
     plt.figure(figsize=(30, 20))

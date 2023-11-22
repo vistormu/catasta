@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from catasta.models import ApproximateGPRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
-from catasta.entities import RegressionEvalInfo, RegressionTrainInfo
+from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo
 
 from vclog import Logger
 
@@ -12,8 +12,8 @@ from vclog import Logger
 def main() -> None:
     n_inducing_points: int = 128
     n_dim: int = 20
-    dataset_root: str = "tests/data/steps/"
-    # dataset_root: str = "tests/data/data_resistance_strain/strain/"
+    # dataset_root: str = "tests/data/steps/"
+    dataset_root: str = "tests/data/nylon_carmen/strain/"
     dataset = RegressionDataset(
         root=dataset_root,
         context_length=n_dim,

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from catasta.models import TransformerRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
-from catasta.entities import RegressionEvalInfo, RegressionTrainInfo
+from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo
 
 from vclog import Logger
 
@@ -12,8 +12,8 @@ from vclog import Logger
 def main() -> None:
     n_dim: int = 256
     dataset = RegressionDataset(
-        # root="tests/data/nylon_carmen/strain/",
-        root="tests/data/wire_lisbeth/strain/",
+        root="tests/data/nylon_carmen/strain/",
+        # root="tests/data/wire_lisbeth/strain/",
         # root="tests/data/steps/",
         context_length=n_dim,
         prediction_length=1,

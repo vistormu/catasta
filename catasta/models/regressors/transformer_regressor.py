@@ -1,7 +1,6 @@
 import torch
-from torch import nn
 from torch import Tensor
-from torch.nn import Module, Sequential, LayerNorm, Linear, GELU, Softmax
+from torch.nn import Module, Sequential, LayerNorm, Linear, GELU, Softmax, ModuleList
 
 from einops import rearrange
 from einops.layers.torch import Rearrange
@@ -44,7 +43,7 @@ class FeedForward(Module):
         return self.net(x)
 
 
-class Attention(nn.Module):
+class Attention(Module):
     def __init__(self, *,
                  d_model: int,
                  n_heads: int = 8,
@@ -78,7 +77,7 @@ class Attention(nn.Module):
         return self.to_out(out)
 
 
-class Transformer(nn.Module):
+class Transformer(Module):
     def __init__(self, *,
                  d_model: int,
                  n_layers: int,
@@ -88,10 +87,10 @@ class Transformer(nn.Module):
                  ) -> None:
         super().__init__()
 
-        self.norm = nn.LayerNorm(d_model)
-        self.layers = nn.ModuleList([])
+        self.norm = LayerNorm(d_model)
+        self.layers = ModuleList([])
         for _ in range(n_layers):
-            self.layers.append(nn.ModuleList([
+            self.layers.append(ModuleList([
                 Attention(d_model=d_model, n_heads=n_heads, head_dim=head_dim),
                 FeedForward(d_model=d_model, hidden_dim=feedforward_dim)
             ]))
@@ -120,7 +119,7 @@ class TransformerRegressor(Module):
         if context_length % patch_size != 0:
             raise ValueError(f"sequence length {context_length} must be divisible by patch size {patch_size}")
 
-        self.to_patch_embedding = nn.Sequential(
+        self.to_patch_embedding = Sequential(
             Rearrange('b c (n p) -> b n (p c)', p=patch_size),
             LayerNorm(patch_size),
             Linear(patch_size, d_model),
@@ -135,7 +134,7 @@ class TransformerRegressor(Module):
             feedforward_dim=feedforward_dim,
         )
 
-        self.linear_head = nn.Linear(d_model, output_dim)
+        self.linear_head = Linear(d_model, output_dim)
 
     def forward(self, x: Tensor) -> Tensor:
         x = rearrange(x, 'b s -> b 1 s')
