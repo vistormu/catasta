@@ -3,7 +3,7 @@ import numpy as np
 from catasta.models import FeedforwardRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
-from catasta.entities import RegressionEvalInfo, RegressionTrainInfo
+from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo
 
 from vclog import Logger
 

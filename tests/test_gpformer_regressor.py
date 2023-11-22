@@ -116,13 +116,14 @@ class GaussianRegressionScaffold:
               batch_size: int = 32,
               lr: float = 1e-3,
               ) -> RegressionTrainInfo:
-        self.transformer_model.eval()
+        # self.transformer_model.eval()
+        self.transformer_model.train()
         self.model.train()
         self.likelihood.train()
 
         data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
 
-        optimizer: Optimizer | None = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
+        optimizer: Optimizer | None = get_optimizer(self.optimizer_id, [self.model, self.likelihood, self.transformer_model], lr)
         if optimizer is None:
             raise ValueError(f"invalid optimizer id: {self.optimizer_id}")
 
@@ -207,23 +208,24 @@ def main() -> None:
     # dataset_root: str = "tests/data/wire_lisbeth/strain/"
     dataset_root: str = "tests/data/nylon_carmen/strain/"
 
-    context_length: int = 1024
-    d_model: int = 24
+    context_length: int = 512
+    d_model: int = 16
 
+    # 512, 4, 1, 16, 2, 2, 32, 4
     dataset = RegressionDataset(
         root=dataset_root,
         context_length=context_length,
         splits=(6/7, 1/7, 0.0),
     )
-    model = FFTTransformerRegressor(
+    model = TransformerRegressor(
         context_length=context_length,
-        n_patches=32,
+        n_patches=4,
         output_dim=1,
         d_model=d_model,
-        n_heads=4,
-        n_layers=4,
+        n_heads=2,
+        n_layers=2,
         feedforward_dim=32,
-        head_dim=8,
+        head_dim=4,
     )
     scaffold = RegressionScaffold(
         model=model,
@@ -232,10 +234,12 @@ def main() -> None:
         loss_function="huber",
     )
 
+    # 100, 128, 1e-3, 5e-4
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=100,
-        batch_size=64,
+        epochs=300,
+        batch_size=128,
         lr=1e-3,
+        final_lr=5e-4
     )
 
     plt.figure(figsize=(30, 20))
@@ -275,13 +279,13 @@ def main() -> None:
         model=gp_model,
         transformer_model=model,
         dataset=dataset,
-        optimizer="adamw",
+        optimizer="adam",
         loss_function="variational_elbo",
     )
 
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=100,
-        batch_size=64,
+        epochs=300,
+        batch_size=128,
         lr=1e-3,
     )
 

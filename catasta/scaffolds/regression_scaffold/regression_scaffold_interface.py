@@ -10,6 +10,7 @@ class IRegressionScaffold(ABC):
               epochs: int,
               batch_size: int,
               lr: float,
+              final_lr: float | None = None
               ) -> RegressionTrainInfo:
         pass
 
