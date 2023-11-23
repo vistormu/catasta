@@ -14,7 +14,7 @@ from gluonts.torch.model.predictor import PyTorchPredictor
 
 from vclog import Logger
 
-from ..entities import ModelData
+from ..dataclasses import ModelData
 
 
 class PredictorScaffold:

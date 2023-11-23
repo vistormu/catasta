@@ -14,8 +14,8 @@ from vclog import Logger
 
 from .regression_scaffold_interface import IRegressionScaffold
 from ...datasets import RegressionDataset
-from ...entities import RegressionEvalInfo, RegressionPrediction, RegressionTrainInfo
-from .use_cases import get_optimizer, get_loss_function, log_train_data
+from ...dataclasses import RegressionEvalInfo, RegressionPrediction, RegressionTrainInfo
+from ...utils import get_optimizer, get_loss_function, log_train_data, ModelStateManager
 
 
 class VanillaRegressionScaffold(IRegressionScaffold):
@@ -34,6 +34,8 @@ class VanillaRegressionScaffold(IRegressionScaffold):
         self.optimmizer_id: str = optimizer
         self.loss_function_id: str = loss_function
 
+        self.model_state_manager = ModelStateManager(patience=10, delta=0.05)
+
         self.logger: Logger = Logger("catasta")
 
         # Logging info
@@ -47,6 +49,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
               batch_size: int = 128,
               lr: float = 1e-3,
               final_lr: float | None = None,
+              early_stopping: bool = False,
               ) -> RegressionTrainInfo:
         self.model.train()
 
@@ -63,9 +66,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
 
-        best_eval_loss: float = np.inf
         eval_loss: float = np.inf
-        best_model_state_dict: dict = self.model.state_dict()
 
         time_per_batch: float = 0.0
         time_per_epoch: float = 0.0
@@ -96,7 +97,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
                 log_train_data(
                     train_loss=loss.item(),
                     val_loss=eval_loss,
-                    best_val_loss=best_eval_loss,
+                    best_val_loss=self.model_state_manager.best_loss,
                     lr=scheduler.get_last_lr()[0],
                     epoch=i,
                     epochs=epochs,
@@ -115,14 +116,16 @@ class VanillaRegressionScaffold(IRegressionScaffold):
             eval_loss = self._estimate_loss(batch_size)
             eval_losses.append(eval_loss)
 
-            if eval_loss < best_eval_loss:
-                best_eval_loss = eval_loss
-                best_model_state_dict = self.model.state_dict()
+            self.model_state_manager(self.model.state_dict(), eval_loss)
+
+            if self.model_state_manager.stop() and early_stopping:
+                self.logger.warning("early stopping")
+                break
 
         # END OF TRAINING
         self.logger.info(f'epoch {epochs}/{epochs} | 100% | best eval loss: {np.min(eval_losses):.4f}')
 
-        self.model.load_state_dict(best_model_state_dict)
+        self.model.load_state_dict(self.model_state_manager.get_best_model_state())
 
         return RegressionTrainInfo(np.array(train_losses), np.array(eval_losses))
 

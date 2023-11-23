@@ -15,9 +15,9 @@ from gpytorch.distributions import MultivariateNormal
 from vclog import Logger
 
 from .regression_scaffold_interface import IRegressionScaffold
-from .use_cases import get_optimizer, get_objective_function
+from ...utils import get_optimizer, get_objective_function
 from ...datasets import RegressionDataset
-from ...entities import RegressionEvalInfo, RegressionTrainInfo, RegressionPrediction
+from ...dataclasses import RegressionEvalInfo, RegressionTrainInfo, RegressionPrediction
 
 
 class GaussianRegressionScaffold(IRegressionScaffold):
