@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from torch import Tensor
-from ...entities import RegressionEvalInfo, RegressionPrediction, RegressionTrainInfo
+from ...dataclasses import RegressionEvalInfo, RegressionPrediction, RegressionTrainInfo
 
 
 class IRegressionScaffold(ABC):
@@ -10,7 +10,8 @@ class IRegressionScaffold(ABC):
               epochs: int,
               batch_size: int,
               lr: float,
-              final_lr: float | None = None
+              final_lr: float | None = None,
+              early_stopping: bool = False,
               ) -> RegressionTrainInfo:
         pass
 

@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from catasta.models import TransformerRegressor, ApproximateGPRegressor, FFTTransformerRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
-from catasta.entities import RegressionEvalInfo, RegressionTrainInfo, RegressionPrediction
+from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo, RegressionPrediction
+from catasta.utils import get_optimizer, get_objective_function
 
 from vclog import Logger
 
@@ -13,79 +14,11 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
 from torch.optim import Optimizer
-
 from torch.distributions import Distribution
 
-from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.mlls import MarginalLogLikelihood
 from gpytorch.distributions import MultivariateNormal
-
-from gpytorch.mlls import (
-    MarginalLogLikelihood,
-    VariationalELBO,
-    PredictiveLogLikelihood,
-    VariationalMarginalLogLikelihood,
-)
-
-from torch.optim import (
-    Optimizer,
-    Adam,
-    SGD,
-    AdamW,
-    LBFGS,
-    RMSprop,
-    Rprop,
-    Adadelta,
-    Adagrad,
-    Adamax,
-    ASGD,
-    SparseAdam,
-)
-
-
-def get_optimizer(id: str, model: Module | list[Module], lr: float) -> Optimizer | None:
-    if isinstance(model, Module):
-        model = [model]
-
-    parameters = []
-    for m in model:
-        parameters += list(m.parameters())
-
-    match id.lower():
-        case "adam":
-            return Adam(parameters, lr=lr)
-        case "sgd":
-            return SGD(parameters, lr=lr)
-        case "adamw":
-            return AdamW(parameters, lr=lr)
-        case "lbfgs":
-            return LBFGS(parameters, lr=lr)
-        case "rmsprop":
-            return RMSprop(parameters, lr=lr)
-        case "rprop":
-            return Rprop(parameters, lr=lr)
-        case "adadelta":
-            return Adadelta(parameters, lr=lr)
-        case "adagrad":
-            return Adagrad(parameters, lr=lr)
-        case "adamax":
-            return Adamax(parameters, lr=lr)
-        case "asgd":
-            return ASGD(parameters, lr=lr)
-        case "sparseadam":
-            return SparseAdam(parameters, lr=lr)
-
-    return None
-
-
-def get_objective_function(id: str, model: Module, likelihood: Module, num_data: int) -> MarginalLogLikelihood | None:
-    match id.lower():
-        case "variational_elbo":
-            return VariationalELBO(likelihood, model, num_data=num_data)
-        case "predictive_log":
-            return PredictiveLogLikelihood(likelihood, model, num_data=num_data)
-        case "variational_marginal_log":
-            return VariationalMarginalLogLikelihood(likelihood, model, num_data=num_data)
+from gpytorch.mlls import MarginalLogLikelihood
+from gpytorch.likelihoods import GaussianLikelihood
 
 
 class GaussianRegressionScaffold:
@@ -225,41 +158,42 @@ def main() -> None:
         n_heads=2,
         n_layers=2,
         feedforward_dim=32,
-        head_dim=4,
+        head_dim=16,
     )
-    scaffold = RegressionScaffold(
-        model=model,
-        dataset=dataset,
-        optimizer="adamw",
-        loss_function="huber",
-    )
+    # scaffold = RegressionScaffold(
+    #     model=model,
+    #     dataset=dataset,
+    #     optimizer="adamw",
+    #     loss_function="huber",
+    # )
 
-    # 100, 128, 1e-3, 5e-4
-    train_info: RegressionTrainInfo = scaffold.train(
-        epochs=300,
-        batch_size=128,
-        lr=1e-3,
-        final_lr=5e-4
-    )
+    # # 100, 128, 1e-3, 5e-4
+    # train_info: RegressionTrainInfo = scaffold.train(
+    #     epochs=200,
+    #     batch_size=128,
+    #     lr=1e-3,
+    #     final_lr=1e-4,
+    #     early_stopping=True,
+    # )
 
-    plt.figure(figsize=(30, 20))
-    plt.plot(train_info.train_loss, label="train loss", color="black")
-    plt.plot(train_info.eval_loss, label="eval loss", color="red")  # type: ignore
-    plt.legend()
-    plt.show()
+    # plt.figure(figsize=(30, 20))
+    # plt.plot(train_info.train_loss, label="train loss", color="black")
+    # plt.plot(train_info.eval_loss, label="eval loss", color="red")  # type: ignore
+    # plt.legend()
+    # plt.show()
 
-    Logger.debug(f"min train loss: {np.min(train_info.train_loss):.4f}, "
-                 f"min eval loss: {np.min(train_info.eval_loss):.4f}")  # type: ignore
+    # Logger.debug(f"min train loss: {np.min(train_info.train_loss):.4f}, "
+    #              f"min eval loss: {np.min(train_info.eval_loss):.4f}")  # type: ignore
 
-    info: RegressionEvalInfo = scaffold.evaluate()
+    # info: RegressionEvalInfo = scaffold.evaluate()
 
-    plt.figure(figsize=(30, 20))
-    plt.plot(info.real, label="real", color="black")
-    plt.plot(info.predicted, label="predictions", color="red")
-    plt.legend()
-    plt.show()
+    # plt.figure(figsize=(30, 20))
+    # plt.plot(info.real, label="real", color="black")
+    # plt.plot(info.predicted, label="predictions", color="red")
+    # plt.legend()
+    # plt.show()
 
-    Logger.debug(info)
+    # Logger.debug(info)
 
     # GP MODEL
     n_inducing_points: int = 128
@@ -284,7 +218,7 @@ def main() -> None:
     )
 
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=300,
+        epochs=1000,
         batch_size=128,
         lr=1e-3,
     )

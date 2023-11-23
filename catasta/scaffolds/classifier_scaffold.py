@@ -11,7 +11,7 @@ from torch.optim import AdamW
 
 from vclog import Logger
 
-from ..entities import TrainInfo
+from ..dataclasses import TrainInfo
 from ..datasets import ClassifierDataset
 
 
