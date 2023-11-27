@@ -39,6 +39,19 @@ class ApproximateGPRegressor(ApproximateGP):
                  kernel: str = "rq",
                  mean: str = "constant"
                  ) -> None:
+        '''
+        Arguments
+        ---------
+        n_inducing_points: int
+            Number of inducing points
+        n_inputs: int
+            Number of input dimensions
+        kernel: str
+            Kernel to use. One of "rq", "matern", "rbf", "rff"
+        mean: str
+            Mean to use. One of "constant", "zero"
+        '''
+
         self.n_inducing_points: int = n_inducing_points
         self.n_inputs: int = n_inputs
         dtype: torch.dtype = torch.float32

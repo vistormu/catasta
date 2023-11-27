@@ -1,10 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 from catasta.models import ApproximateGPRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
 from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo
+from catasta.utils import Plotter
 
 from vclog import Logger
 
@@ -13,12 +13,13 @@ def main() -> None:
     n_inducing_points: int = 128
     n_dim: int = 20
     # dataset_root: str = "tests/data/steps/"
-    dataset_root: str = "tests/data/nylon_carmen/strain/"
+    # dataset_root: str = "tests/data/nylon_carmen_elasticband/paper/strain/mixed_10_20/"
+    dataset_root: str = "tests/data/nylon_carmen/paper/strain/sin_20/"
     dataset = RegressionDataset(
         root=dataset_root,
         context_length=n_dim,
         prediction_length=1,
-        splits=(0.9, 0.0, 0.1),
+        splits=(6/7, 0.0, 1/7),
     )
     model = ApproximateGPRegressor(
         n_inducing_points=n_inducing_points,
@@ -35,22 +36,19 @@ def main() -> None:
 
     train_info: RegressionTrainInfo = scaffold.train(
         epochs=100,
-        batch_size=256,
-        lr=1e-2,
+        batch_size=128,
+        lr=1e-3,
     )
-
     Logger.debug(f"min train loss: {np.min(train_info.train_loss):.4f}")
 
     info: RegressionEvalInfo = scaffold.evaluate()
-
-    plt.figure(figsize=(30, 20))
-    plt.plot(info.predicted, label="predictions", color="red")
-    plt.plot(info.real, label="real", color="black")
-    plt.fill_between(range(len(info.predicted)), info.predicted-1*info.stds, info.predicted+1*info.stds, color="red", alpha=0.2)
-    plt.legend()
-    plt.show()
-
     Logger.debug(info)
+
+    plotter = Plotter(
+        train_info=train_info,
+        eval_info=info,
+    )
+    plotter.plot_all()
 
 
 if __name__ == '__main__':

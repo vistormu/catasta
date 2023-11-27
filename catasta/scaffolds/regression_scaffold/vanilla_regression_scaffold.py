@@ -166,6 +166,9 @@ class VanillaRegressionScaffold(IRegressionScaffold):
             predictions = predictions[-min_len:]
             test_y = test_y[-min_len:]
 
+        if len(test_x.shape) != 1:
+            test_x = test_x[:, -1].flatten()
+
         return RegressionEvalInfo(test_x, test_y, predictions)
 
     @ torch.no_grad()
