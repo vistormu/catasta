@@ -11,10 +11,11 @@ from vclog import Logger
 
 def main() -> None:
     n_inducing_points: int = 128
-    n_dim: int = 20
+    n_dim: int = 64
     # dataset_root: str = "tests/data/steps/"
     # dataset_root: str = "tests/data/nylon_carmen_elasticband/paper/strain/mixed_10_20/"
-    dataset_root: str = "tests/data/nylon_carmen/paper/strain/sin_20/"
+    # dataset_root: str = "tests/data/nylon_carmen/paper/strain/sin_20/"
+    dataset_root: str = "tests/data/wire_lisbeth/strain/"
     dataset = RegressionDataset(
         root=dataset_root,
         context_length=n_dim,
@@ -31,13 +32,15 @@ def main() -> None:
         model=model,
         dataset=dataset,
         optimizer="adamw",
-        loss_function="predictive_log",
+        loss_function="variational_elbo",
     )
 
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=100,
+        epochs=1000,
         batch_size=128,
-        lr=1e-3,
+        lr=1e-2,
+        final_lr=1e-3,
+        early_stopping=True,
     )
     Logger.debug(f"min train loss: {np.min(train_info.train_loss):.4f}")
 

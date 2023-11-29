@@ -1,6 +1,6 @@
 from torch.nn import Module
 
-from .regression_scaffold_interface import IRegressionScaffold
+from .regression_scaffold_interface import RegressionScaffold as IRegressionScaffold
 from ...datasets import RegressionDataset
 from ...models import ApproximateGPRegressor
 from .vanilla_regression_scaffold import VanillaRegressionScaffold

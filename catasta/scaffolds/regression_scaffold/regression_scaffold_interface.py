@@ -4,7 +4,7 @@ from torch import Tensor
 from ...dataclasses import RegressionEvalInfo, RegressionPrediction, RegressionTrainInfo
 
 
-class IRegressionScaffold(ABC):
+class RegressionScaffold(ABC):
     @abstractmethod
     def train(self, *,
               epochs: int,

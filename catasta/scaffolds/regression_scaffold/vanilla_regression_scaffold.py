@@ -12,13 +12,13 @@ from torch.nn.modules.loss import _Loss
 
 from vclog import Logger
 
-from .regression_scaffold_interface import IRegressionScaffold
+from .regression_scaffold_interface import RegressionScaffold
 from ...datasets import RegressionDataset
 from ...dataclasses import RegressionEvalInfo, RegressionPrediction, RegressionTrainInfo
 from ...utils import get_optimizer, get_loss_function, log_train_data, ModelStateManager
 
 
-class VanillaRegressionScaffold(IRegressionScaffold):
+class VanillaRegressionScaffold(RegressionScaffold):
     def __init__(self, *,
                  model: Module,
                  dataset: RegressionDataset,
@@ -81,8 +81,8 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
                 optimizer.zero_grad()
 
-                x_batch: Tensor = x_batch.to(self.device, dtype=self.dtype)
-                y_batch: Tensor = y_batch.to(self.device, dtype=self.dtype)
+                x_batch = x_batch.to(self.device, dtype=self.dtype)
+                y_batch = y_batch.to(self.device, dtype=self.dtype)
 
                 output: Tensor = self.model(x_batch)
 
@@ -129,7 +129,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         return RegressionTrainInfo(np.array(train_losses), np.array(eval_losses))
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
         self.model.eval()
 
@@ -140,7 +140,7 @@ class VanillaRegressionScaffold(IRegressionScaffold):
 
         return RegressionPrediction(output.cpu().numpy())
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
         test_index: int = np.floor(len(self.dataset) * (self.dataset.splits[0]+self.dataset.splits[1])).astype(int)
 
@@ -161,17 +161,18 @@ class VanillaRegressionScaffold(IRegressionScaffold):
             output: RegressionPrediction = self.predict(x_batch)
             predictions = np.concatenate((predictions, output.prediction.flatten()))
 
-        if len(predictions) != len(test_y):
-            min_len: int = min(len(predictions), len(test_y))
-            predictions = predictions[-min_len:]
-            test_y = test_y[-min_len:]
-
         if len(test_x.shape) != 1:
             test_x = test_x[:, -1].flatten()
 
+        if len(predictions) != len(test_y) or len(predictions) != len(test_x) or len(test_x) != len(test_y):
+            min_len: int = min(len(predictions), len(test_y), len(test_x))
+            predictions = predictions[-min_len:]
+            test_y = test_y[-min_len:]
+            test_x = test_x[-min_len:]
+
         return RegressionEvalInfo(test_x, test_y, predictions)
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def _estimate_loss(self, batch_size: int) -> float:
         if self.dataset.validation is None:
             return np.inf
