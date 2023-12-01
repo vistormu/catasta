@@ -47,7 +47,7 @@ def RegressionScaffold(model: Module, dataset: RegressionDataset, optimizer: str
 
     Returns
     -------
-    IRegressionScaffold
+    RegressionScaffold
         The scaffold class to train the model.
     '''
     match model:
