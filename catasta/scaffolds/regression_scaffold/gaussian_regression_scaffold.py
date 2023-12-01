@@ -138,6 +138,9 @@ class GaussianRegressionScaffold(RegressionScaffold):
         input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
         input_tensor = input_tensor.to(self.device, dtype=self.dtype)
 
+        if input_tensor.ndim == 1:
+            input_tensor = input_tensor.unsqueeze(0)
+
         output: Distribution = self.likelihood(self.model(input_tensor))
 
         mean: np.ndarray = output.mean.cpu().numpy()
@@ -147,31 +150,19 @@ class GaussianRegressionScaffold(RegressionScaffold):
 
     @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
-        test_index: int = np.floor(len(self.dataset) * self.dataset.splits[0]).astype(int)
-        test_x: np.ndarray = self.dataset.inputs[test_index:]
-        test_y: np.ndarray = self.dataset.outputs[test_index:].flatten()
-
         if self.dataset.test is None:
-            raise ValueError(f"test split must be greater than 0")
+            raise ValueError("test split is empty")
 
-        data_loader = DataLoader(self.dataset.test, batch_size=1, shuffle=False)
+        true_input: np.ndarray = np.array([])
+        true_output: np.ndarray = np.array([])
+        predicted_output: np.ndarray = np.array([])
+        predicted_std: np.ndarray = np.array([])
+        for x, y in self.dataset.test:
+            true_input = np.append(true_input, x[-1])
+            true_output = np.append(true_output, y)
 
-        means: np.ndarray = np.array([])
-        stds: np.ndarray = np.array([])
-        for x_batch, _ in data_loader:
-            output: RegressionPrediction = self.predict(x_batch)
-            means = np.concatenate([means, output.prediction])
-            if output.stds is not None:
-                stds = np.concatenate([stds, output.stds])
+            output: RegressionPrediction = self.predict(x)
+            predicted_output = np.append(predicted_output, output.prediction)
+            predicted_std = np.append(predicted_std, output.stds if output.stds is not None else np.zeros_like(output.prediction))
 
-        if len(test_x.shape) != 1:
-            test_x = test_x[:, -1].flatten()
-
-        if len(means) != len(test_y) or len(stds) != len(test_y) or len(test_x) != len(test_y) or len(test_x) != len(means) or len(test_x) != len(stds):
-            min_len: int = min(len(test_x), len(means), len(stds), len(test_y))
-            means = means[-min_len:]
-            stds = stds[-min_len:]
-            test_y = test_y[-min_len:]
-            test_x = test_x[-min_len:]
-
-        return RegressionEvalInfo(test_x, test_y, means, stds)
+        return RegressionEvalInfo(true_input, true_output, predicted_output, predicted_std)

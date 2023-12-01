@@ -6,45 +6,40 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Subset
 
+from ..transformations import Transformation
+
 
 class RegressionDataset(Dataset):
     def __init__(self, *,
                  root: str,
-                 context_length: int = 1,
-                 prediction_length: int = 1,
+                 input_transformations: list[Transformation] = [],
+                 output_transformations: list[Transformation] = [],
                  splits: tuple[float, float, float] = (0.8, 0.1, 0.1),
                  ) -> None:
         self.root: str = root
-        self.context_length: int = context_length
-        self.prediction_length: int = prediction_length
-        self.splits: tuple[float, float, float] = splits
+        self.train_split: float = splits[0]
+        self.validation_split: float = splits[1]
+        self.test_split: float = splits[2]
+
+        self.input_transformations: list[Transformation] = input_transformations
+        self.output_transformations: list[Transformation] = output_transformations
 
         self.inputs: np.ndarray = np.array([])
         self.outputs: np.ndarray = np.array([])
 
         self._check_arguments()
-        inputs, outputs = self._get_data()
-        self._prepare_data(inputs, outputs)
-
-        train_index: int = int(self.splits[0] * len(self))
-        validation_index: int = train_index + int(self.splits[1] * len(self))
-        test_index: int = validation_index + int(self.splits[2] * len(self))
-        self.train: Subset = Subset(self, range(train_index))
-        self.validation: Subset | None = Subset(self, range(train_index, validation_index)) if splits[1] > 0 else None
-        self.test: Subset | None = Subset(self, range(validation_index, test_index)) if splits[2] > 0 else None
+        self.inputs, self.outputs = self._prepare_data(*self._get_data())
+        self.train, self.validation, self.test = self._split_dataset()
 
     def _check_arguments(self) -> None:
         if not os.path.isdir(self.root):
             raise ValueError(f"root must be a directory")
-        if self.context_length < 1:
-            raise ValueError(f"context_length must be at least 1")
-        if self.prediction_length < 1:
-            raise ValueError(f"prediction_length must be at least 1")
-        if round(sum(self.splits), 4) != 1:
-            raise ValueError(f"splits must sum to 1. Found {sum(self.splits)}")
-        if self.splits[1] == 0 and self.splits[2] == 0:
+        splits_sum: float = round(sum([self.train_split, self.validation_split, self.test_split]), 4)
+        if splits_sum != 1:
+            raise ValueError(f"splits must sum to 1. Found {splits_sum}")
+        if self.validation_split == 0 and self.test_split == 0:
             raise ValueError(f"at least a validation or test split must be greater than 0")
-        if self.splits[0] == 0:
+        if self.train_split == 0:
             raise ValueError(f"train split must be greater than 0")
 
     def _get_data(self) -> tuple[list[np.ndarray], list[np.ndarray]]:
@@ -68,35 +63,38 @@ class RegressionDataset(Dataset):
             if len(inputs[-1]) != len(outputs[-1]):
                 raise ValueError(f"CSV file {filename} must have the same number of rows for 'input' and 'output'")
 
-            if len(inputs[-1]) < self.context_length + self.prediction_length:
-                raise ValueError(f"CSV file {filename} has {len(inputs[-1])} rows, and the sum of the context and prediction lengths is {self.context_length + self.prediction_length}")
-
         if filename_counter == 0:
             raise ValueError(f"Directory {self.root} must contain at least one CSV file")
 
         return inputs, outputs
 
-    def _prepare_data(self, inputs: list[np.ndarray], outputs: list[np.ndarray]) -> None:
-        reshaped_inputs: list[np.ndarray] = []
-        reshaped_outputs: list[np.ndarray] = []
+    def _prepare_data(self, inputs: list[np.ndarray], outputs: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+        transformed_inputs: list[np.ndarray] = []
+        transformed_outputs: list[np.ndarray] = []
 
         for input, output in zip(inputs, outputs):
-            reshaped_input: list[np.ndarray] = []
-            reshaped_output: list[np.ndarray] = []
+            for transformation in self.input_transformations:
+                input = transformation(input)
+            for transformation in self.output_transformations:
+                output = transformation(output)
 
-            n_iterations: int = len(input) - self.context_length - self.prediction_length + 2
-            for i in range(n_iterations):
-                context: np.ndarray = input[i: i+self.context_length]
-                reshaped_input.append(context)
+            transformed_inputs.append(input)
+            transformed_outputs.append(output)
 
-                prediction: np.ndarray = output[i+self.context_length-1: i+self.context_length+self.prediction_length-1]
-                reshaped_output.append(prediction)
+        inputs_array: np.ndarray = np.concatenate(transformed_inputs)
+        outputs_array: np.ndarray = np.concatenate(transformed_outputs)
 
-            reshaped_inputs.append(np.array(reshaped_input))
-            reshaped_outputs.append(np.array(reshaped_output))
+        return inputs_array, outputs_array
 
-        self.inputs: np.ndarray = np.concatenate(reshaped_inputs)
-        self.outputs: np.ndarray = np.concatenate(reshaped_outputs)
+    def _split_dataset(self) -> tuple[Subset, Subset | None, Subset | None]:
+        train_index: int = int(self.train_split * len(self))
+        validation_index: int = train_index + int(self.validation_split * len(self))
+        test_index: int = validation_index + int(self.test_split * len(self))
+        train: Subset = Subset(self, range(train_index))
+        validation: Subset | None = Subset(self, range(train_index, validation_index)) if self.validation_split > 0 else None
+        test: Subset | None = Subset(self, range(validation_index, test_index)) if self.test_split > 0 else None
+
+        return train, validation, test
 
     def __len__(self) -> int:
         return self.inputs.shape[0]

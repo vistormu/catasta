@@ -136,41 +136,31 @@ class VanillaRegressionScaffold(RegressionScaffold):
         input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
         input_tensor = input_tensor.to(self.device, dtype=self.dtype)
 
+        if len(input_tensor.shape) == 1:
+            input_tensor = input_tensor.unsqueeze(0)
+
         output: Tensor = self.model(input_tensor)
 
         return RegressionPrediction(output.cpu().numpy())
 
     @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
-        test_index: int = np.floor(len(self.dataset) * (self.dataset.splits[0]+self.dataset.splits[1])).astype(int)
-
         if self.dataset.test is None and self.dataset.validation is not None:
-            Logger.warning("test split is empty, using validation split instead")
             self.dataset.test = self.dataset.validation
-            test_index = np.floor(len(self.dataset) * self.dataset.splits[0]).astype(int)
         else:
             raise ValueError(f"cannot evaluate without a test split")
 
-        test_x: np.ndarray = self.dataset.inputs[test_index:]
-        test_y: np.ndarray = self.dataset.outputs[test_index:].flatten()
+        true_input: np.ndarray = np.array([])
+        true_output: np.ndarray = np.array([])
+        predicted_output: np.ndarray = np.array([])
+        for x, y in self.dataset.test:
+            output: RegressionPrediction = self.predict(x)
 
-        data_loader: DataLoader = DataLoader(self.dataset.test, batch_size=1, shuffle=False)
+            true_input = np.append(true_input, x[-1])
+            true_output = np.append(true_output, y)
+            predicted_output = np.append(predicted_output, output.prediction)
 
-        predictions: np.ndarray = np.array([])
-        for x_batch, _ in data_loader:
-            output: RegressionPrediction = self.predict(x_batch)
-            predictions = np.concatenate((predictions, output.prediction.flatten()))
-
-        if len(test_x.shape) != 1:
-            test_x = test_x[:, -1].flatten()
-
-        if len(predictions) != len(test_y) or len(predictions) != len(test_x) or len(test_x) != len(test_y):
-            min_len: int = min(len(predictions), len(test_y), len(test_x))
-            predictions = predictions[-min_len:]
-            test_y = test_y[-min_len:]
-            test_x = test_x[-min_len:]
-
-        return RegressionEvalInfo(test_x, test_y, predictions)
+        return RegressionEvalInfo(true_input, true_output, predicted_output)
 
     @torch.no_grad()
     def _estimate_loss(self, batch_size: int) -> float:
