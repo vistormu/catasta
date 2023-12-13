@@ -4,3 +4,6 @@ torch
 gpytorch
 vclog
 scipy
+
+triton
+causal_conv1d<=1.0.2

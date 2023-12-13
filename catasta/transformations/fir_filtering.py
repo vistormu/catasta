@@ -4,7 +4,7 @@ from scipy.signal import firwin, lfilter
 from .transformation import Transformation
 
 
-class FIRFiletring(Transformation):
+class FIRFiltering(Transformation):
     def __init__(self, fs: int, cutoff: float, numtaps: int) -> None:
         self.fs: int = fs
         self.cutoff: float = cutoff

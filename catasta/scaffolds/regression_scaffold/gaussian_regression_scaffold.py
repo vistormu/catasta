@@ -40,8 +40,6 @@ class GaussianRegressionScaffold(RegressionScaffold):
         self.optimizer_id: str = optimizer
         self.loss_function_id: str = loss_function
 
-        self.model_state_manager: ModelStateManager = ModelStateManager(patience=10, delta=0.05)
-
         self.logger: Logger = Logger("catasta")
 
         # Logging info
@@ -55,7 +53,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
               batch_size: int = 32,
               lr: float = 1e-3,
               final_lr: float | None = None,
-              early_stopping: bool = False,
+              early_stopping: tuple[int, float] | None = None,
               ) -> RegressionTrainInfo:
         self.model.train()
         self.likelihood.train()
@@ -70,6 +68,8 @@ class GaussianRegressionScaffold(RegressionScaffold):
 
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
+
+        model_state_manager = ModelStateManager(early_stopping)
 
         data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
 
@@ -99,7 +99,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
                 times_per_batch.append((time.time() - start_time) * 1000)
 
                 log_train_data(
-                    train_loss=loss.item(),
+                    train_loss=losses[-1] if len(losses) > 0 else 0.0,
                     val_loss=0.0,
                     best_val_loss=0.0,
                     lr=scheduler.get_last_lr()[0],
@@ -117,16 +117,16 @@ class GaussianRegressionScaffold(RegressionScaffold):
             time_per_batch = np.mean(times_per_batch).astype(float)
             time_per_epoch = np.sum(times_per_batch).astype(float)
 
-            self.model_state_manager(self.model.state_dict(), losses[-1])
+            model_state_manager(self.model.state_dict(), losses[-1])
 
-            if self.model_state_manager.stop() and early_stopping:
+            if model_state_manager.stop():
                 self.logger.warning("early stopping")
                 break
 
         # END OF TRAINING
         self.logger.info(f'epoch {epochs}/{epochs} | 100% | loss: {np.min(losses):.4f}')
 
-        self.model.load_state_dict(self.model_state_manager.get_best_model_state())
+        # self.model.load_state_dict(model_state_manager.get_best_model_state())
 
         return RegressionTrainInfo(np.array(losses))
 
