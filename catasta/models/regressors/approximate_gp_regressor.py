@@ -4,7 +4,7 @@ from torch import Tensor
 from gpytorch.models import ApproximateGP
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
 from gpytorch.means import ZeroMean, ConstantMean, Mean
-from gpytorch.kernels import Kernel, ScaleKernel, RBFKernel, MaternKernel, RQKernel, RFFKernel
+from gpytorch.kernels import Kernel, ScaleKernel, RBFKernel, MaternKernel, RQKernel, RFFKernel, PeriodicKernel
 from gpytorch.distributions import MultivariateNormal
 
 
@@ -18,6 +18,8 @@ def _get_kernel(id: str, n_inputs: int) -> Kernel | None:
             return RBFKernel(ard_num_dims=n_inputs)
         case "rff":
             return RFFKernel(num_samples=n_inputs)
+        case "periodic":
+            return PeriodicKernel(ard_num_dims=n_inputs)
 
     return None
 
@@ -47,7 +49,7 @@ class ApproximateGPRegressor(ApproximateGP):
         n_inputs: int
             Number of input dimensions
         kernel: str
-            Kernel to use. One of "rq", "matern", "rbf", "rff"
+            Kernel to use. One of "rq", "matern", "rbf", "rff", "periodic"
         mean: str
             Mean to use. One of "constant", "zero"
         '''
@@ -75,14 +77,8 @@ class ApproximateGPRegressor(ApproximateGP):
 
         self.covar_module = ScaleKernel(kernel_module)
 
-    def forward(self, x) -> MultivariateNormal:
+    def forward(self, x: Tensor) -> MultivariateNormal:
         mean_x: Tensor = self.mean_module(x)  # type: ignore
         covar_x: Tensor = self.covar_module(x)  # type: ignore
 
         return MultivariateNormal(mean_x, covar_x)
-
-    def save(self, path: str) -> None:
-        torch.save(self.state_dict(), path)
-
-    def load(self, path: str) -> None:
-        self.load_state_dict(torch.load(path))

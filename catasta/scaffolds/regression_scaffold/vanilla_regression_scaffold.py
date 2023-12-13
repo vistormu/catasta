@@ -34,8 +34,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
         self.optimmizer_id: str = optimizer
         self.loss_function_id: str = loss_function
 
-        self.model_state_manager = ModelStateManager(patience=10, delta=0.05)
-
         self.logger: Logger = Logger("catasta")
 
         # Logging info
@@ -49,7 +47,7 @@ class VanillaRegressionScaffold(RegressionScaffold):
               batch_size: int = 128,
               lr: float = 1e-3,
               final_lr: float | None = None,
-              early_stopping: bool = False,
+              early_stopping: tuple[int, float] | None = None,
               ) -> RegressionTrainInfo:
         self.model.train()
 
@@ -64,7 +62,9 @@ class VanillaRegressionScaffold(RegressionScaffold):
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
-        data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
+        model_state_manager = ModelStateManager(early_stopping)
+
+        data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=True)
 
         eval_loss: float = np.inf
 
@@ -95,9 +95,9 @@ class VanillaRegressionScaffold(RegressionScaffold):
                 times_per_batch.append((time.time() - start_time) * 1000)
 
                 log_train_data(
-                    train_loss=loss.item(),
+                    train_loss=train_losses[-1] if len(train_losses) > 0 else 0,
                     val_loss=eval_loss,
-                    best_val_loss=self.model_state_manager.best_loss,
+                    best_val_loss=model_state_manager.best_loss,
                     lr=scheduler.get_last_lr()[0],
                     epoch=i,
                     epochs=epochs,
@@ -116,16 +116,16 @@ class VanillaRegressionScaffold(RegressionScaffold):
             eval_loss = self._estimate_loss(batch_size)
             eval_losses.append(eval_loss)
 
-            self.model_state_manager(self.model.state_dict(), eval_loss)
+            model_state_manager(self.model.state_dict(), eval_loss)
 
-            if self.model_state_manager.stop() and early_stopping:
+            if model_state_manager.stop():
                 self.logger.warning("early stopping")
                 break
 
         # END OF TRAINING
         self.logger.info(f'epoch {epochs}/{epochs} | 100% | best eval loss: {np.min(eval_losses):.4f}')
 
-        self.model.load_state_dict(self.model_state_manager.get_best_model_state())
+        self.model.load_state_dict(model_state_manager.get_best_model_state())
 
         return RegressionTrainInfo(np.array(train_losses), np.array(eval_losses))
 
