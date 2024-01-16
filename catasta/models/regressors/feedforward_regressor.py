@@ -6,7 +6,6 @@ class FeedforwardRegressor(Module):
     def __init__(self, *,
                  input_dim: int,
                  hidden_dims: list[int],
-                 output_dim: int,
                  dropout: float,
                  ) -> None:
         super().__init__()
@@ -23,7 +22,7 @@ class FeedforwardRegressor(Module):
             layers.append(ReLU())
             layers.append(Dropout(dropout))
 
-        layers.append(Linear(hidden_dims[-1], output_dim))
+        layers.append(Linear(hidden_dims[-1], 1))
 
         self.model: Sequential = Sequential(*layers)
 

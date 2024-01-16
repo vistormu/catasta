@@ -5,4 +5,4 @@ from .regressors.feedforward_regressor import FeedforwardRegressor
 from .regressors.transformer_regressor import TransformerRegressor
 from .regressors.fft_transformer_regressor import FFTTransformerRegressor
 from .regressors.rbf_regressor import RBFRegressor
-from .regressors.mamba_regressor.mamba_regressor import MambaRegressor
+from .regressors.mamba_regressor import MambaRegressor

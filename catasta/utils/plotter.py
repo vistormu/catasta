@@ -55,6 +55,6 @@ class Plotter:
     def plot_all(self) -> None:
         self.plot_train_loss()
         self.plot_predictions()
-        self.plot_residuals()
+        # self.plot_residuals()
         # self.plot_input_output_relation()
         # self.plot_output_relation()

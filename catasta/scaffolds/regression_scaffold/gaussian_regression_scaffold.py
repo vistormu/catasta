@@ -54,6 +54,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
               lr: float = 1e-3,
               final_lr: float | None = None,
               early_stopping: tuple[int, float] | None = None,
+              verbose: bool = True,
               ) -> RegressionTrainInfo:
         self.model.train()
         self.likelihood.train()
@@ -98,17 +99,18 @@ class GaussianRegressionScaffold(RegressionScaffold):
                 batch_losses.append(loss.item())
                 times_per_batch.append((time.time() - start_time) * 1000)
 
-                log_train_data(
-                    train_loss=losses[-1] if len(losses) > 0 else 0.0,
-                    val_loss=0.0,
-                    best_val_loss=0.0,
-                    lr=scheduler.get_last_lr()[0],
-                    epoch=i,
-                    epochs=epochs,
-                    percentage=int((i/epochs)*100+(j/len(data_loader))*100/epochs),
-                    time_per_batch=time_per_batch,
-                    time_per_epoch=time_per_epoch,
-                )
+                if verbose:
+                    log_train_data(
+                        train_loss=losses[-1] if len(losses) > 0 else 0.0,
+                        val_loss=0.0,
+                        best_val_loss=0.0,
+                        lr=scheduler.get_last_lr()[0],
+                        epoch=i,
+                        epochs=epochs,
+                        percentage=int((i/epochs)*100+(j/len(data_loader))*100/epochs),
+                        time_per_batch=time_per_batch,
+                        time_per_epoch=time_per_epoch,
+                    )
 
             # END OF EPOCH
             scheduler.step()
