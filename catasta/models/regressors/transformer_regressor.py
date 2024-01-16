@@ -106,7 +106,6 @@ class TransformerRegressor(Module):
     def __init__(self, *,
                  context_length: int,
                  n_patches: int,
-                 output_dim: int,
                  d_model: int,
                  n_layers: int,
                  n_heads: int,
@@ -134,7 +133,7 @@ class TransformerRegressor(Module):
             feedforward_dim=feedforward_dim,
         )
 
-        self.linear_head = Linear(d_model, output_dim)
+        self.linear_head = Linear(d_model, 1)
 
     def forward(self, x: Tensor) -> Tensor:
         x = rearrange(x, 'b s -> b 1 s')

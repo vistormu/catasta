@@ -12,6 +12,7 @@ class RegressionScaffold(ABC):
               lr: float,
               final_lr: float | None = None,
               early_stopping: tuple[int, float] | None = None,
+              verbose: bool = True,
               ) -> RegressionTrainInfo:
         """
         Train the model
@@ -28,6 +29,8 @@ class RegressionScaffold(ABC):
             Final learning rate for the learning rate scheduler. If None, then the learning rate will not decay.
         early_stopping: tuple[int, float]
             A tuple of (patience, min_delta) for the early stopping scheduler. If None, then the early stopping scheduler will not be used.
+        verbose: bool
+            Whether to print training logs
 
         Returns
         -------

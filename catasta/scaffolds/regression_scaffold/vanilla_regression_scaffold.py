@@ -29,13 +29,13 @@ class VanillaRegressionScaffold(RegressionScaffold):
         self.dtype: torch.dtype = torch.float32
 
         self.model: Module = model.to(self.device)
+
         self.dataset: RegressionDataset = dataset
 
         self.optimmizer_id: str = optimizer
         self.loss_function_id: str = loss_function
 
         self.logger: Logger = Logger("catasta")
-
         # Logging info
         message: str = f"using {self.device} with {torch.cuda.get_device_name()}" if torch.cuda.is_available() else f"using {self.device}"
         self.logger.info(message)
@@ -48,8 +48,12 @@ class VanillaRegressionScaffold(RegressionScaffold):
               lr: float = 1e-3,
               final_lr: float | None = None,
               early_stopping: tuple[int, float] | None = None,
+              verbose: bool = True,
               ) -> RegressionTrainInfo:
         self.model.train()
+
+        if self.dataset.validation is None:
+            self.logger.warning("no validation split found")
 
         optimizer: Optimizer | None = get_optimizer(self.optimmizer_id, self.model, lr)
         if optimizer is None:
@@ -94,17 +98,18 @@ class VanillaRegressionScaffold(RegressionScaffold):
                 batch_train_losses.append(loss.item())
                 times_per_batch.append((time.time() - start_time) * 1000)
 
-                log_train_data(
-                    train_loss=train_losses[-1] if len(train_losses) > 0 else 0,
-                    val_loss=eval_loss,
-                    best_val_loss=model_state_manager.best_loss,
-                    lr=scheduler.get_last_lr()[0],
-                    epoch=i,
-                    epochs=epochs,
-                    percentage=int((i/epochs)*100+(j/len(data_loader))*100/epochs),
-                    time_per_batch=time_per_batch,
-                    time_per_epoch=time_per_epoch,
-                )
+                if verbose:
+                    log_train_data(
+                        train_loss=train_losses[-1] if len(train_losses) > 0 else 0,
+                        val_loss=eval_loss,
+                        best_val_loss=model_state_manager.best_loss,
+                        lr=scheduler.get_last_lr()[0],
+                        epoch=i,
+                        epochs=epochs,
+                        percentage=int((i/epochs)*100+(j/len(data_loader))*100/epochs),
+                        time_per_batch=time_per_batch,
+                        time_per_epoch=time_per_epoch,
+                    )
 
             # END OF EPOCH
             scheduler.step()
@@ -123,7 +128,7 @@ class VanillaRegressionScaffold(RegressionScaffold):
                 break
 
         # END OF TRAINING
-        self.logger.info(f'epoch {epochs}/{epochs} | 100% | best eval loss: {np.min(eval_losses):.4f}')
+        self.logger.info(f'training completed | best eval loss: {np.min(eval_losses):.4f}')
 
         self.model.load_state_dict(model_state_manager.get_best_model_state())
 
@@ -146,6 +151,7 @@ class VanillaRegressionScaffold(RegressionScaffold):
     @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
         if self.dataset.test is None and self.dataset.validation is not None:
+            self.logger.warning("no test split found, using validation split for evaluation")
             self.dataset.test = self.dataset.validation
         else:
             raise ValueError(f"cannot evaluate without a test split")

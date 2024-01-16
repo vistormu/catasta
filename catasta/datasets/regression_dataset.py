@@ -47,7 +47,9 @@ class RegressionDataset(Dataset):
         outputs: list[np.ndarray] = []
 
         filename_counter: int = 0
-        for filename in os.listdir(self.root):
+        filenames: list[str] = os.listdir(self.root)
+        filenames.sort()
+        for filename in filenames:
             if not filename.endswith(".csv"):
                 continue
             filename_counter += 1

@@ -108,7 +108,6 @@ class FFTTransformerRegressor(Module):
     def __init__(self, *,
                  context_length: int,
                  n_patches: int,
-                 output_dim: int,
                  d_model: int,
                  n_layers: int,
                  n_heads: int,
@@ -144,7 +143,7 @@ class FFTTransformerRegressor(Module):
             feedforward_dim=feedforward_dim,
         )
 
-        self.linear_head = nn.Linear(d_model, output_dim)
+        self.linear_head = nn.Linear(d_model, 1)
 
     def forward(self, input: Tensor) -> Tensor:
         input = rearrange(input, 'b s -> b 1 s')
