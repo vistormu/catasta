@@ -52,6 +52,7 @@ def main() -> None:
         d_state=8,
         d_conv=3,
         expand=10,
+        use_fft=True,
     )
     scaffold = RegressionScaffold(
         model=model,
