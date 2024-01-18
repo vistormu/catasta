@@ -6,3 +6,4 @@ from .regressors.transformer_regressor import TransformerRegressor
 from .regressors.fft_transformer_regressor import FFTTransformerRegressor
 from .regressors.rbf_regressor import RBFRegressor
 from .regressors.mamba_regressor import MambaRegressor
+from .regressors.fft_mamba_regressor import FFTMambaRegressor
