@@ -1,46 +1,69 @@
 import torch
-from einops.layers.torch import Rearrange
-from einops import rearrange
+from torch import Tensor
 from torch.nn import (
     Module,
-    Sequential,
-    LayerNorm,
     Linear,
+    LayerNorm,
+    Sequential,
+    ModuleList,
+    Dropout,
 )
 from torch.fft import fft
-from torch import Tensor
-from torch.nn import Module
 
-from mamba_ssm import Mamba
+from einops import rearrange
+from einops.layers.torch import Rearrange
 
-
-def posemb_sincos_1d(patches: Tensor, temperature: int = 10000) -> Tensor:
-    n: int = patches.shape[1]
-    d_model: int = patches.shape[2]
-    device: torch.device = patches.device
-    dtype: torch.dtype = patches.dtype
-
-    if (d_model % 2) != 0:
-        raise ValueError(f'feature dimension must be multiple of 2 for sincos emb. got {d_model}')
-
-    n_tensor: Tensor = torch.arange(n, device=device)
-    omega: Tensor = torch.arange(d_model // 2, device=device) / (d_model // 2 - 1)
-    omega = 1.0 / (temperature ** omega)
-
-    n_tensor = n_tensor.flatten()[:, None] * omega[None, :]
-    pe: Tensor = torch.cat((n_tensor.sin(), n_tensor.cos()), dim=1)
-
-    return pe.to(dtype)
+from .modules import (
+    posemb_sincos_1d,
+    Attention,
+    FeedForward,
+)
 
 
-class MambaRegressor(Module):
+class Transformer(Module):
+    def __init__(self, *,
+                 d_model: int,
+                 n_layers: int,
+                 n_heads: int,
+                 head_dim: int,
+                 feedforward_dim: int,
+                 dropout: float,
+                 ) -> None:
+        super().__init__()
+
+        self.norm = LayerNorm(d_model)
+        self.layers = ModuleList([])
+        for _ in range(n_layers):
+            self.layers.append(ModuleList([
+                Attention(d_model=d_model,
+                          n_heads=n_heads,
+                          head_dim=head_dim,
+                          dropout=dropout,
+                          ),
+                FeedForward(d_model=d_model,
+                            hidden_dim=feedforward_dim,
+                            dropout=dropout,
+                            )
+            ]))
+
+    def forward(self, x: Tensor) -> Tensor:
+        for attn, ff in self.layers:  # type: ignore
+            x = attn(x) + x
+            x = ff(x) + x
+
+        return self.norm(x)
+
+
+class TransformerRegressor(Module):
     def __init__(self, *,
                  context_length: int,
                  n_patches: int,
                  d_model: int,
-                 d_state: int,
-                 d_conv: int,
-                 expand: int,
+                 n_layers: int,
+                 n_heads: int,
+                 feedforward_dim: int,
+                 head_dim: int,
+                 dropout: float,
                  use_fft: bool = False,
                  ) -> None:
         super().__init__()
@@ -51,7 +74,6 @@ class MambaRegressor(Module):
             raise ValueError(f"sequence length {context_length} must be divisible by patch size {patch_size}")
 
         self.use_fft = use_fft
-        self.pos_embedding = posemb_sincos_1d
 
         self.to_patch_embedding = Sequential(
             Rearrange('b c (n p) -> b n (p c)', p=patch_size),
@@ -67,11 +89,16 @@ class MambaRegressor(Module):
             LayerNorm(d_model),
         )
 
-        self.mamba = Mamba(
+        self.pos_embedding = posemb_sincos_1d
+        self.dropout = Dropout(dropout)
+
+        self.transformer = Transformer(
             d_model=d_model,
-            d_state=d_state,
-            d_conv=d_conv,
-            expand=expand,
+            n_layers=n_layers,
+            n_heads=n_heads,
+            head_dim=head_dim,
+            feedforward_dim=feedforward_dim,
+            dropout=dropout,
         )
 
         self.linear_head = Sequential(
@@ -91,7 +118,7 @@ class MambaRegressor(Module):
         x = self.to_patch_embedding(input)
         x += self.pos_embedding(x)
 
-        x = self.mamba(x)
+        x = self.transformer(x)
         x = x.mean(dim=1)
 
         x = self.linear_head(x).squeeze()
@@ -110,7 +137,7 @@ class MambaRegressor(Module):
 
         x = torch.cat((x, f), dim=1)
 
-        x = self.mamba(x)
+        x = self.transformer(x)
         x = x.mean(dim=1)
 
         x = self.linear_head(x).squeeze()
