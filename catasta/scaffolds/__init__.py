@@ -1,2 +1,1 @@
-from .classifier_scaffold import ClassifierScaffold
 from .regression_scaffold.regression_scaffold import RegressionScaffold
