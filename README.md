@@ -10,15 +10,20 @@
 
 Catasta is a Python library designed to simplify and accelerate the process of machine learning model experimentation. It encapsulates the complexities of model training and evaluation, offering researchers and developers a straightforward pipeline for rapid model assessment with minimal setup required.
 
-Catasta's philosophy is centered on ease-of-use and efficiency. By simplifying the selection of models and datasets, and by automating the training and evaluation process, Catasta allows users to focus on rapid prototyping and iterative experimentation. This library is ideal for those who wish to test multiple models quickly to determine the best fit for their problem statement.
+> Note: Catasta only supports regression at the moment. Other techniques such as classification or prediction are being developed.
 
-## Key components
+> Important: Catasta is subject of change until a major version is launched.
+
+## Key features
 
 ### Models
 The `models` module in Catasta houses a variety of machine learning models. Users can easily select from a range of pre-implemented models suited for different tasks and requirements.
 
 ### Datasets
 Within the `datasets` module, Catasta provides an easy way to import datasets contained in directories, being able to modify the data shape in an easy way.
+
+### Transformations
+The 'transformations' module lets you apply transformations to the data when its loaded to a dataset.
 
 ### Scaffolds
 The `scaffolds` component is the core of the Catasta library, where the integration of models and datasets occurs. Scaffolds handle the intricacies of training, evaluation, and any additional processing required to transform raw data into actionable insights. This automation empowers users to focus on the conceptual aspects of their models rather than the operational details.
@@ -30,5 +35,3 @@ To begin using Catasta, install the library using pip:
 ```sh
 pip install catasta
 ```
-
-## Examples
