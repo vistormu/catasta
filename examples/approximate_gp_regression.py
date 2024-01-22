@@ -29,7 +29,7 @@ def main() -> None:
     early_stopping: tuple[int, float] = (10, 1e-4)
 
     # Dataset
-    dataset_root: str = "data/..."
+    dataset_root: str = "examples/data/"
     input_trasnsformations = [
         Slicing(amount=1, end="right"),
         Normalization("minmax"),

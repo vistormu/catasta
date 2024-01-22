@@ -1,2 +1,1 @@
-from .classifier_dataset import ClassifierDataset
 from .regression_dataset import RegressionDataset
