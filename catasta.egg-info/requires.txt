@@ -1,0 +1,9 @@
+numpy
+pandas
+torch
+gpytorch
+einops
+vclog
+scipy
+mamba-ssm
+causal_conv1d<=1.0.2
