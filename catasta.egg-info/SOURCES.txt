@@ -1,8 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-catasta.egg-info/PKG-INFO
-catasta.egg-info/SOURCES.txt
-catasta.egg-info/dependency_links.txt
-catasta.egg-info/requires.txt
-catasta.egg-info/top_level.txt
