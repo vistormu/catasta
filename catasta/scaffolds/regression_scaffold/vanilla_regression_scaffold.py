@@ -24,6 +24,7 @@ class VanillaRegressionScaffold(RegressionScaffold):
                  dataset: RegressionDataset,
                  optimizer: str = "adam",
                  loss_function: str = "mse",
+                 save_path: str | None = None,
                  ) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
@@ -35,12 +36,17 @@ class VanillaRegressionScaffold(RegressionScaffold):
         self.optimmizer_id: str = optimizer
         self.loss_function_id: str = loss_function
 
+        if save_path is not None and "." in save_path:
+            raise ValueError("save path must be a directory")
+        self.save_path: str | None = save_path
+
         self.logger: Logger = Logger("catasta")
+
         # Logging info
         message: str = f"using {self.device} with {torch.cuda.get_device_name()}" if torch.cuda.is_available() else f"using {self.device}"
         self.logger.info(message)
         n_parameters: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        self.logger.info(f"training model {self.model.__class__.__name__} with {n_parameters} parameters")
+        self.logger.info(f"training model {self.model.__class__.__name__} ({n_parameters} parameters)")
 
     def train(self, *,
               epochs: int = 100,
@@ -66,23 +72,20 @@ class VanillaRegressionScaffold(RegressionScaffold):
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
-        model_state_manager = ModelStateManager(early_stopping)
+        model_state_manager = ModelStateManager(early_stopping, self.save_path)
 
         data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=True)
 
         eval_loss: float = np.inf
 
-        time_per_batch: float = 0.0
         time_per_epoch: float = 0.0
 
         train_losses: list[float] = []
         eval_losses: list[float] = []
         for i in range(epochs):
-            times_per_batch: list[float] = []
             batch_train_losses: list[float] = []
+            start_time: float = time.time()
             for j, (x_batch, y_batch) in enumerate(data_loader):
-                start_time: float = time.time()
-
                 optimizer.zero_grad()
 
                 x_batch = x_batch.to(self.device, dtype=self.dtype)
@@ -96,7 +99,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
                 optimizer.step()
 
                 batch_train_losses.append(loss.item())
-                times_per_batch.append((time.time() - start_time) * 1000)
 
                 if verbose:
                     log_train_data(
@@ -107,7 +109,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
                         epoch=i,
                         epochs=epochs,
                         percentage=int((i/epochs)*100+(j/len(data_loader))*100/epochs),
-                        time_per_batch=time_per_batch,
                         time_per_epoch=time_per_epoch,
                     )
 
@@ -115,8 +116,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
             scheduler.step()
 
             train_losses.append(np.mean(batch_train_losses).astype(float))
-            time_per_batch = np.mean(times_per_batch).astype(float)
-            time_per_epoch = np.sum(times_per_batch).astype(float)
 
             eval_loss = self._estimate_loss(batch_size)
             eval_losses.append(eval_loss)
@@ -127,10 +126,13 @@ class VanillaRegressionScaffold(RegressionScaffold):
                 self.logger.warning("early stopping")
                 break
 
+            time_per_epoch = time.time() - start_time
+
         # END OF TRAINING
         self.logger.info(f'training completed | best eval loss: {np.min(eval_losses):.4f}')
 
-        self.model.load_state_dict(model_state_manager.get_best_model_state())
+        model_state_manager.load_best_model_state(self.model)
+        model_state_manager.save_models([self.model])
 
         return RegressionTrainInfo(np.array(train_losses), np.array(eval_losses))
 

@@ -16,7 +16,7 @@ class RegressionDataset(Dataset):
                  output_transformations: list[Transformation] = [],
                  splits: tuple[float, float, float] = (0.8, 0.1, 0.1),
                  ) -> None:
-        self.root: str = root
+        self.root: str = root if root.endswith("/") else root + "/"
         self.train_split: float = splits[0]
         self.validation_split: float = splits[1]
         self.test_split: float = splits[2]
@@ -33,7 +33,7 @@ class RegressionDataset(Dataset):
 
     def _check_arguments(self) -> None:
         if not os.path.isdir(self.root):
-            raise ValueError(f"root must be a directory")
+            raise ValueError(f"root must be a directory. Found {self.root}")
         splits_sum: float = round(sum([self.train_split, self.validation_split, self.test_split]), 4)
         if splits_sum != 1:
             raise ValueError(f"splits must sum to 1. Found {splits_sum}")

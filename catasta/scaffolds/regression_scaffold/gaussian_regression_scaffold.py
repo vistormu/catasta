@@ -29,6 +29,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
                  dataset: RegressionDataset,
                  optimizer: str = "adam",
                  loss_function: str = "variational_elbo",
+                 save_path: str | None = None,
                  ) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
@@ -40,13 +41,17 @@ class GaussianRegressionScaffold(RegressionScaffold):
         self.optimizer_id: str = optimizer
         self.loss_function_id: str = loss_function
 
+        if save_path is not None and "." in save_path:
+            raise ValueError("save path must be a directory")
+        self.save_path: str | None = save_path
+
         self.logger: Logger = Logger("catasta")
 
         # Logging info
         message: str = f"using {self.device} with {torch.cuda.get_device_name()}" if torch.cuda.is_available() else f"using {self.device}"
         self.logger.info(message)
         n_parameters: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        self.logger.info(f"training model {self.model.__class__.__name__} with {n_parameters} parameters")
+        self.logger.info(f"training model {self.model.__class__.__name__} ({n_parameters} parameters)")
 
     def train(self,
               epochs: int = 100,
@@ -70,20 +75,17 @@ class GaussianRegressionScaffold(RegressionScaffold):
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
-        model_state_manager = ModelStateManager(early_stopping)
+        model_state_manager = ModelStateManager(early_stopping, self.save_path)
 
         data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
 
-        time_per_batch: float = 0.0
         time_per_epoch: float = 0.0
 
         losses: list[float] = []
         for i in range(epochs):
-            times_per_batch: list[float] = []
             batch_losses: list[float] = []
+            start_time: float = time.time()
             for j, (x_batch, y_batch) in enumerate(data_loader):
-                start_time: float = time.time()
-
                 optimizer.zero_grad()
 
                 x_batch = x_batch.to(self.device, dtype=self.dtype)
@@ -97,7 +99,6 @@ class GaussianRegressionScaffold(RegressionScaffold):
                 optimizer.step()
 
                 batch_losses.append(loss.item())
-                times_per_batch.append((time.time() - start_time) * 1000)
 
                 if verbose:
                     log_train_data(
@@ -108,7 +109,6 @@ class GaussianRegressionScaffold(RegressionScaffold):
                         epoch=i,
                         epochs=epochs,
                         percentage=int((i/epochs)*100+(j/len(data_loader))*100/epochs),
-                        time_per_batch=time_per_batch,
                         time_per_epoch=time_per_epoch,
                     )
 
@@ -116,8 +116,6 @@ class GaussianRegressionScaffold(RegressionScaffold):
             scheduler.step()
 
             losses.append(np.mean(batch_losses).astype(float))
-            time_per_batch = np.mean(times_per_batch).astype(float)
-            time_per_epoch = np.sum(times_per_batch).astype(float)
 
             model_state_manager(self.model.state_dict(), losses[-1])
 
@@ -125,14 +123,17 @@ class GaussianRegressionScaffold(RegressionScaffold):
                 self.logger.warning("early stopping")
                 break
 
-        # END OF TRAINING
-        self.logger.info(f'epoch {epochs}/{epochs} | 100% | loss: {np.min(losses):.4f}')
+            time_per_epoch = time.time() - start_time
 
-        # self.model.load_state_dict(model_state_manager.get_best_model_state())
+        # END OF TRAINING
+        self.logger.info(f"training completed | best loss: {np.min(losses)}")
+
+        model_state_manager.load_best_model_state(self.model)
+        model_state_manager.save_models([self.model, self.likelihood])
 
         return RegressionTrainInfo(np.array(losses))
 
-    @torch.no_grad()
+    @ torch.no_grad()
     def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
         self.model.eval()
         self.likelihood.eval()
