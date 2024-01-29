@@ -5,6 +5,3 @@ gpytorch
 vclog
 scipy
 einops
-
-mamba-ssm
-causal_conv1d<=1.0.2
