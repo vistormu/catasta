@@ -1,13 +1,19 @@
 from torch.nn import Module
+from gpytorch.models.gp import GP
 
 from .regression_scaffold_interface import RegressionScaffold as IRegressionScaffold
 from ...datasets import RegressionDataset
-from ...models import ApproximateGPRegressor
 from .vanilla_regression_scaffold import VanillaRegressionScaffold
 from .gaussian_regression_scaffold import GaussianRegressionScaffold
 
 
-def RegressionScaffold(model: Module, dataset: RegressionDataset, optimizer: str, loss_function: str) -> IRegressionScaffold:
+def RegressionScaffold(*,
+                       model: Module,
+                       dataset: RegressionDataset,
+                       optimizer: str,
+                       loss_function: str,
+                       save_path: str | None = None,
+                       ) -> IRegressionScaffold:
     '''
     Create a scaffold for regression tasks.
 
@@ -45,18 +51,22 @@ def RegressionScaffold(model: Module, dataset: RegressionDataset, optimizer: str
             - "predictive_log" (only for Gaussian processes)
             - "variational_marginal_log" (only for Gaussian processes)
 
+    save_path: str | None
+        The path where to save the model. If None, the model is not saved. It must be a directory.
+
     Returns
     -------
     RegressionScaffold
         The scaffold class to train the model.
     '''
     match model:
-        case ApproximateGPRegressor():
+        case GP():
             return GaussianRegressionScaffold(
                 model=model,
                 dataset=dataset,
                 optimizer=optimizer,
                 loss_function=loss_function,
+                save_path=save_path,
             )
         case _:
             return VanillaRegressionScaffold(
@@ -64,4 +74,5 @@ def RegressionScaffold(model: Module, dataset: RegressionDataset, optimizer: str
                 dataset=dataset,
                 optimizer=optimizer,
                 loss_function=loss_function,
+                save_path=save_path,
             )
