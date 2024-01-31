@@ -7,3 +7,4 @@ from .slicing import Slicing
 from .diff_and_concat import DiffAndConcat
 from .identity import Identity
 from .custom import Custom
+from .kalman_filter import KalmanFilter

@@ -20,7 +20,7 @@ from vclog import Logger
 from .regression_scaffold_interface import RegressionScaffold
 from ...utils import get_optimizer, get_objective_function, ModelStateManager, log_train_data
 from ...datasets import RegressionDataset
-from ...dataclasses import RegressionEvalInfo, RegressionTrainInfo, RegressionPrediction
+from ...dataclasses import RegressionEvalInfo, RegressionTrainInfo
 
 
 class GaussianRegressionScaffold(RegressionScaffold):
@@ -133,39 +133,24 @@ class GaussianRegressionScaffold(RegressionScaffold):
 
         return RegressionTrainInfo(np.array(losses))
 
-    @ torch.no_grad()
-    def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
-        self.model.eval()
-        self.likelihood.eval()
-
-        input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
-        input_tensor = input_tensor.to(self.device, dtype=self.dtype)
-
-        if input_tensor.ndim == 1:
-            input_tensor = input_tensor.unsqueeze(0)
-
-        output: Distribution = self.likelihood(self.model(input_tensor))
-
-        mean: np.ndarray = output.mean.cpu().numpy()
-        std: np.ndarray = output.stddev.cpu().numpy()
-
-        return RegressionPrediction(mean, std)
-
     @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
         if self.dataset.test is None:
             raise ValueError("test split is empty")
 
-        true_input: np.ndarray = np.array([])
-        true_output: np.ndarray = np.array([])
-        predicted_output: np.ndarray = np.array([])
-        predicted_std: np.ndarray = np.array([])
-        for x, y in self.dataset.test:
-            true_input = np.append(true_input, x[-1])
-            true_output = np.append(true_output, y)
+        self.model.eval()
+        self.likelihood.eval()
 
-            output: RegressionPrediction = self.predict(x)
-            predicted_output = np.append(predicted_output, output.prediction)
-            predicted_std = np.append(predicted_std, output.stds if output.stds is not None else np.zeros_like(output.prediction))
+        x, y = next(iter(DataLoader(self.dataset.test, batch_size=len(self.dataset.test), shuffle=False)))
+
+        x: Tensor = x.to(self.device, dtype=self.dtype)
+        y: Tensor = y.to(self.device, dtype=self.dtype)
+
+        output: Distribution = self.likelihood(self.model(x))
+
+        true_input: np.ndarray = x.cpu().numpy()[:, -1]
+        true_output: np.ndarray = y.cpu().numpy()
+        predicted_output: np.ndarray = output.mean.cpu().numpy()
+        predicted_std: np.ndarray = output.stddev.cpu().numpy()
 
         return RegressionEvalInfo(true_input, true_output, predicted_output, predicted_std)

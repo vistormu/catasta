@@ -2,7 +2,7 @@ import os
 
 import matplotlib.pyplot as plt
 
-from catasta.models import ApproximateGPRegressor, TransformerRegressor
+from catasta.models import ApproximateGPRegressor, TransformerRegressor, FeedforwardRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
 from catasta.transformations import (
@@ -38,16 +38,21 @@ def main() -> None:
         splits=(train_split, 1 - train_split, 0.0),
         # splits=(train_split, 0.0, 1 - train_split),
     )
-    model = TransformerRegressor(
-        context_length=n_dim,
-        n_patches=2,
-        d_model=64,
-        n_heads=2,
-        n_layers=4,
-        feedforward_dim=32,
-        head_dim=2,
+    # model = TransformerRegressor(
+    #     context_length=n_dim,
+    #     n_patches=2,
+    #     d_model=64,
+    #     n_heads=2,
+    #     n_layers=4,
+    #     feedforward_dim=32,
+    #     head_dim=2,
+    #     dropout=0.0,
+    #     use_fft=True,
+    # )
+    model = FeedforwardRegressor(
+        input_dim=n_dim,
+        hidden_dims=[8, 16, 8],
         dropout=0.0,
-        use_fft=True,
     )
 
     # model = ApproximateGPRegressor(
