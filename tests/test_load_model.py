@@ -48,7 +48,7 @@ def main() -> None:
     input = df["input"].to_numpy().flatten()
 
     transformations = [
-        Custom(lambda x: x[500_000:1_500_000]),
+        Custom(lambda x: x[1_500_000: 2_000_000]),
         Normalization("minmax"),
         Decimation(decimation_factor=100),
         WindowSliding(window_size=n_dim, stride=1),
@@ -57,14 +57,9 @@ def main() -> None:
     for t in transformations:
         input = t(input)
 
-    predicted = []
-    for i in input:
-        prediction = archway.predict(i)
-        predicted.append(prediction.prediction)
+    prediction = archway.predict(input)
 
-    prediction = np.array(predicted).flatten()
-
-    plt.plot(prediction)
+    plt.plot(prediction.value)
     plt.show()
 
 
