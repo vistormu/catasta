@@ -14,7 +14,7 @@ from vclog import Logger
 
 from .regression_scaffold_interface import RegressionScaffold
 from ...datasets import RegressionDataset
-from ...dataclasses import RegressionEvalInfo, RegressionPrediction, RegressionTrainInfo
+from ...dataclasses import RegressionEvalInfo, RegressionTrainInfo
 from ...utils import get_optimizer, get_loss_function, log_train_data, ModelStateManager
 
 
@@ -137,20 +137,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
         return RegressionTrainInfo(np.array(train_losses), np.array(eval_losses))
 
     @torch.no_grad()
-    def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
-        self.model.eval()
-
-        input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
-        input_tensor = input_tensor.to(self.device, dtype=self.dtype)
-
-        if len(input_tensor.shape) == 1:
-            input_tensor = input_tensor.unsqueeze(0)
-
-        output: Tensor = self.model(input_tensor)
-
-        return RegressionPrediction(output.cpu().numpy())
-
-    @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
         if self.dataset.test is None and self.dataset.validation is not None:
             self.logger.warning("no test split found, using validation split for evaluation")
@@ -158,15 +144,18 @@ class VanillaRegressionScaffold(RegressionScaffold):
         else:
             raise ValueError(f"cannot evaluate without a test split")
 
-        true_input: np.ndarray = np.array([])
-        true_output: np.ndarray = np.array([])
-        predicted_output: np.ndarray = np.array([])
-        for x, y in self.dataset.test:
-            output: RegressionPrediction = self.predict(x)
+        self.model.eval()
 
-            true_input = np.append(true_input, x[-1])
-            true_output = np.append(true_output, y)
-            predicted_output = np.append(predicted_output, output.prediction)
+        x, y = next(iter(DataLoader(self.dataset.test, batch_size=len(self.dataset.test), shuffle=False)))
+
+        x: Tensor = x.to(self.device, dtype=self.dtype)
+        y: Tensor = y.to(self.device, dtype=self.dtype)
+
+        output: Tensor = self.model(x)
+
+        true_input: np.ndarray = x.cpu().numpy()[:, -1]
+        true_output: np.ndarray = y.cpu().numpy()
+        predicted_output: np.ndarray = output.cpu().numpy()
 
         return RegressionEvalInfo(true_input, true_output, predicted_output)
 
@@ -185,8 +174,8 @@ class VanillaRegressionScaffold(RegressionScaffold):
 
         losses: list[float] = []
         for x_batch, y_batch in data_loader:
-            x_batch: Tensor = x_batch.to(self.device, dtype=self.dtype)
-            y_batch: Tensor = y_batch.to(self.device, dtype=self.dtype)
+            x_batch = x_batch.to(self.device, dtype=self.dtype)
+            y_batch = y_batch.to(self.device, dtype=self.dtype)
 
             output: Tensor = self.model(x_batch)
 

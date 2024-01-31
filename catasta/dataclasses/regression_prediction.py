@@ -3,5 +3,5 @@ import numpy as np
 
 
 class RegressionPrediction(NamedTuple):
-    prediction: np.ndarray
-    stds: np.ndarray | None = None
+    value: np.ndarray
+    std: np.ndarray | None = None

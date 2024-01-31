@@ -2,11 +2,11 @@ import numpy as np
 
 
 class RegressionEvalInfo:
-    def __init__(self, true_input: np.ndarray, true_output: np.ndarray, predicted_output: np.ndarray, stds: np.ndarray | None = None) -> None:
+    def __init__(self, true_input: np.ndarray, true_output: np.ndarray, predicted_output: np.ndarray, predicted_std: np.ndarray | None = None) -> None:
         self.true_input: np.ndarray = true_input
         self.predicted_output: np.ndarray = predicted_output
         self.true_output: np.ndarray = true_output
-        self.stds: np.ndarray | None = stds
+        self.predicted_std: np.ndarray | None = predicted_std
 
         self.mae: float = np.mean(np.abs(predicted_output - true_output)).astype(float)
         self.mse: float = np.mean((predicted_output - true_output)**2).astype(float)
