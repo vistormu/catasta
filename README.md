@@ -16,17 +16,22 @@ Catasta is a Python library designed to simplify and accelerate the process of m
 
 ## Key features
 
+Catasta is a very simple package, containing only five modules each one with an specific purpose. 
+
 ### Models
-The `models` module in Catasta houses a variety of machine learning models. Users can easily select from a range of pre-implemented models suited for different tasks and requirements.
+The `models` module houses a variety of machine learning models.
 
 ### Datasets
-Within the `datasets` module, Catasta provides an easy way to import datasets contained in directories, being able to modify the data shape in an easy way.
+The `datasets` module provides an easy way to import the data contained in directories, being also able to modify the data shape in an easy way.
 
 ### Transformations
 The `transformations` module lets you apply transformations to the data when its loaded to a dataset.
 
 ### Scaffolds
-The `scaffolds` component is the core of the Catasta library, where the integration of models and datasets occurs. Scaffolds handle the intricacies of training, evaluation, and any additional processing required to transform raw data into actionable insights. This automation empowers users to focus on the conceptual aspects of their models rather than the operational details.
+The `scaffolds` module is where models and datasets are integrated for training. Scaffolds handle training and evaluation. 
+
+### Archways
+The `archways` module takes a trained model and handles the inference task.
 
 ## Installation
 
