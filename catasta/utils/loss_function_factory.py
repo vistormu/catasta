@@ -9,7 +9,7 @@ from torch.nn import (
 )
 
 
-def get_loss_function(id: str) -> _Loss | None:
+def get_loss_function(id: str) -> _Loss:
     match id.lower():
         case "mse":
             return MSELoss()
@@ -23,5 +23,5 @@ def get_loss_function(id: str) -> _Loss | None:
             return PoissonNLLLoss()
         case "kl_div":
             return KLDivLoss()
-
-    return None
+        case _:
+            raise ValueError(f"invalid loss function id: {id}")

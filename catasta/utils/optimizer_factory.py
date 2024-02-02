@@ -15,7 +15,7 @@ from torch.optim import (
 )
 
 
-def get_optimizer(id: str, model: Module | list[Module], lr: float) -> Optimizer | None:
+def get_optimizer(id: str, model: Module | list[Module], lr: float) -> Optimizer:
     if isinstance(model, Module):
         model = [model]
 
@@ -46,5 +46,5 @@ def get_optimizer(id: str, model: Module | list[Module], lr: float) -> Optimizer
             return ASGD(parameters, lr=lr)
         case "sparseadam":
             return SparseAdam(parameters, lr=lr)
-
-    return None
+        case _:
+            raise ValueError(f"invalid optimizer id: {id}")

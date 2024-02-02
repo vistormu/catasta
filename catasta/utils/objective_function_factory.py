@@ -9,7 +9,7 @@ from gpytorch.mlls import (
 )
 
 
-def get_objective_function(id: str, model: Module, likelihood: Module, num_data: int) -> MarginalLogLikelihood | None:
+def get_objective_function(id: str, model: Module, likelihood: Module, num_data: int) -> MarginalLogLikelihood:
     match id.lower():
         case "variational_elbo":
             return VariationalELBO(likelihood, model, num_data=num_data)
@@ -19,5 +19,5 @@ def get_objective_function(id: str, model: Module, likelihood: Module, num_data:
             return VariationalMarginalLogLikelihood(likelihood, model, num_data=num_data)
         case "gamma_robust_variational_elbo":
             return GammaRobustVariationalELBO(likelihood, model, num_data=num_data)
-
-    return None
+        case _:
+            raise ValueError(f"invalid objective function id: {id}")
