@@ -54,7 +54,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
               lr: float = 1e-3,
               final_lr: float | None = None,
               early_stopping: tuple[int, float] | None = None,
-              verbose: bool = True,
               ) -> RegressionTrainInfo:
         self.model.train()
 
@@ -113,8 +112,7 @@ class VanillaRegressionScaffold(RegressionScaffold):
                 time_per_epoch=time_per_epoch,
             )
 
-            if verbose:
-                self.logger.info(training_logger, flush=True)
+            self.logger.info(training_logger, flush=True)
 
         # END OF TRAINING
         train_info: RegressionTrainInfo = training_logger.get_regression_train_info()
