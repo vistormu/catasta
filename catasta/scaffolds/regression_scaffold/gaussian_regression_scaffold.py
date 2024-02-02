@@ -18,7 +18,7 @@ from gpytorch.distributions import MultivariateNormal
 from vclog import Logger
 
 from .regression_scaffold_interface import RegressionScaffold
-from ...utils import get_optimizer, get_objective_function, ModelStateManager, log_train_data
+from ...utils import get_optimizer, get_objective_function, ModelStateManager, RegressionTrainingLogger
 from ...datasets import RegressionDataset
 from ...dataclasses import RegressionEvalInfo, RegressionTrainInfo
 
@@ -59,33 +59,27 @@ class GaussianRegressionScaffold(RegressionScaffold):
               lr: float = 1e-3,
               final_lr: float | None = None,
               early_stopping: tuple[int, float] | None = None,
-              verbose: bool = True,
               ) -> RegressionTrainInfo:
         self.model.train()
         self.likelihood.train()
 
-        optimizer: Optimizer | None = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
-        if optimizer is None:
-            raise ValueError(f"invalid optimizer id: {self.optimizer_id}")
-
-        mll: MarginalLogLikelihood | None = get_objective_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))
-        if mll is None:
-            raise ValueError(f"invalid loss function id: {self.loss_function_id}")
+        optimizer: Optimizer = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
+        mll: MarginalLogLikelihood = get_objective_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))
 
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
         model_state_manager = ModelStateManager(early_stopping, self.save_path)
 
-        data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=False)
+        training_logger: RegressionTrainingLogger = RegressionTrainingLogger(epochs)
+
+        data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=True)
 
         time_per_epoch: float = 0.0
-
-        losses: list[float] = []
-        for i in range(epochs):
+        for epoch in range(epochs):
             batch_losses: list[float] = []
             start_time: float = time.time()
-            for j, (x_batch, y_batch) in enumerate(data_loader):
+            for x_batch, y_batch in data_loader:
                 optimizer.zero_grad()
 
                 x_batch = x_batch.to(self.device, dtype=self.dtype)
@@ -100,24 +94,12 @@ class GaussianRegressionScaffold(RegressionScaffold):
 
                 batch_losses.append(loss.item())
 
-                if verbose:
-                    log_train_data(
-                        train_loss=losses[-1] if len(losses) > 0 else 0.0,
-                        val_loss=0.0,
-                        best_val_loss=0.0,
-                        lr=scheduler.get_last_lr()[0],
-                        epoch=i,
-                        epochs=epochs,
-                        percentage=int((i/epochs)*100+(j/len(data_loader))*100/epochs),
-                        time_per_epoch=time_per_epoch,
-                    )
-
             # END OF EPOCH
             scheduler.step()
 
-            losses.append(np.mean(batch_losses).astype(float))
+            train_loss: float = np.mean(batch_losses).astype(float)
 
-            model_state_manager(self.model.state_dict(), losses[-1])
+            model_state_manager(self.model.state_dict(), train_loss)
 
             if model_state_manager.stop():
                 self.logger.warning("early stopping")
@@ -125,15 +107,27 @@ class GaussianRegressionScaffold(RegressionScaffold):
 
             time_per_epoch = time.time() - start_time
 
+            training_logger.log(
+                train_loss=train_loss,
+                val_loss=None,
+                lr=optimizer.param_groups[0]["lr"],
+                epoch=epoch + 1,
+                time_per_epoch=time_per_epoch,
+            )
+
+            self.logger.info(training_logger, flush=True)
+
         # END OF TRAINING
-        self.logger.info(f"training completed | best loss: {np.min(losses)}")
+        train_info: RegressionTrainInfo = training_logger.get_regression_train_info()
+
+        self.logger.info(f"training completed | best loss: {train_info.best_train_loss:.4f}")
 
         model_state_manager.load_best_model_state(self.model)
         model_state_manager.save_models([self.model, self.likelihood])
 
-        return RegressionTrainInfo(np.array(losses))
+        return train_info
 
-    @torch.no_grad()
+    @ torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
         if self.dataset.test is None:
             raise ValueError("test split is empty")

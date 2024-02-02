@@ -3,5 +3,8 @@ import numpy as np
 
 
 class RegressionTrainInfo(NamedTuple):
-    train_loss: np.ndarray
-    eval_loss: np.ndarray | None = None
+    train_losses: np.ndarray
+    best_train_loss: float
+    val_losses: np.ndarray | None
+    best_val_loss: float | None
+    lr_values: np.ndarray

@@ -57,7 +57,7 @@ def main() -> None:
         lr=1e-3,
         final_lr=1e-4,
     )
-    Logger.debug(f"min train loss: {np.min(train_info.train_loss):.4f}")
+    Logger.debug(f"min train loss: {train_info.best_train_loss:.4f}")
 
     info: RegressionEvalInfo = scaffold.evaluate()
     Logger.debug(info)

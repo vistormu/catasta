@@ -15,7 +15,7 @@ from vclog import Logger
 from .regression_scaffold_interface import RegressionScaffold
 from ...datasets import RegressionDataset
 from ...dataclasses import RegressionEvalInfo, RegressionTrainInfo
-from ...utils import get_optimizer, get_loss_function, log_train_data, ModelStateManager
+from ...utils import get_optimizer, get_loss_function, RegressionTrainingLogger, ModelStateManager
 
 
 class VanillaRegressionScaffold(RegressionScaffold):
@@ -54,38 +54,29 @@ class VanillaRegressionScaffold(RegressionScaffold):
               lr: float = 1e-3,
               final_lr: float | None = None,
               early_stopping: tuple[int, float] | None = None,
-              verbose: bool = True,
               ) -> RegressionTrainInfo:
         self.model.train()
 
         if self.dataset.validation is None:
             self.logger.warning("no validation split found")
 
-        optimizer: Optimizer | None = get_optimizer(self.optimmizer_id, self.model, lr)
-        if optimizer is None:
-            raise ValueError(f"invalid optimizer id: {self.optimmizer_id}")
-
-        loss_function: _Loss | None = get_loss_function(self.loss_function_id)
-        if loss_function is None:
-            raise ValueError(f"invalid loss function id: {self.loss_function_id}")
+        optimizer: Optimizer = get_optimizer(self.optimmizer_id, self.model, lr)
+        loss_function: _Loss = get_loss_function(self.loss_function_id)
 
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
         model_state_manager = ModelStateManager(early_stopping, self.save_path)
 
+        training_logger = RegressionTrainingLogger(epochs)
+
         data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=True)
 
-        eval_loss: float = np.inf
-
         time_per_epoch: float = 0.0
-
-        train_losses: list[float] = []
-        eval_losses: list[float] = []
-        for i in range(epochs):
+        for epoch in range(epochs):
             batch_train_losses: list[float] = []
             start_time: float = time.time()
-            for j, (x_batch, y_batch) in enumerate(data_loader):
+            for x_batch, y_batch in data_loader:
                 optimizer.zero_grad()
 
                 x_batch = x_batch.to(self.device, dtype=self.dtype)
@@ -100,27 +91,12 @@ class VanillaRegressionScaffold(RegressionScaffold):
 
                 batch_train_losses.append(loss.item())
 
-                if verbose:
-                    log_train_data(
-                        train_loss=train_losses[-1] if len(train_losses) > 0 else 0,
-                        val_loss=eval_loss,
-                        best_val_loss=model_state_manager.best_loss,
-                        lr=scheduler.get_last_lr()[0],
-                        epoch=i,
-                        epochs=epochs,
-                        percentage=int((i/epochs)*100+(j/len(data_loader))*100/epochs),
-                        time_per_epoch=time_per_epoch,
-                    )
-
             # END OF EPOCH
             scheduler.step()
 
-            train_losses.append(np.mean(batch_train_losses).astype(float))
+            val_loss = self._estimate_loss(batch_size)
 
-            eval_loss = self._estimate_loss(batch_size)
-            eval_losses.append(eval_loss)
-
-            model_state_manager(self.model.state_dict(), eval_loss)
+            model_state_manager(self.model.state_dict(), val_loss)
 
             if model_state_manager.stop():
                 self.logger.warning("early stopping")
@@ -128,13 +104,25 @@ class VanillaRegressionScaffold(RegressionScaffold):
 
             time_per_epoch = time.time() - start_time
 
+            training_logger.log(
+                train_loss=np.mean(batch_train_losses).astype(float),
+                val_loss=val_loss,
+                lr=scheduler.get_last_lr()[0],
+                epoch=epoch + 1,
+                time_per_epoch=time_per_epoch,
+            )
+
+            self.logger.info(training_logger, flush=True)
+
         # END OF TRAINING
-        self.logger.info(f'training completed | best eval loss: {np.min(eval_losses):.4f}')
+        train_info: RegressionTrainInfo = training_logger.get_regression_train_info()
+
+        self.logger.info(f'training completed | best loss: {train_info.best_val_loss:.4f}')
 
         model_state_manager.load_best_model_state(self.model)
         model_state_manager.save_models([self.model])
 
-        return RegressionTrainInfo(np.array(train_losses), np.array(eval_losses))
+        return train_info
 
     @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo:
