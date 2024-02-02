@@ -56,7 +56,6 @@ def main() -> None:
         batch_size=256,
         lr=1e-3,
         final_lr=1e-4,
-        verbose=False,
     )
     Logger.debug(f"min train loss: {train_info.best_train_loss:.4f}")
 

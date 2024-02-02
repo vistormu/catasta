@@ -117,7 +117,7 @@ class VanillaRegressionScaffold(RegressionScaffold):
         # END OF TRAINING
         train_info: RegressionTrainInfo = training_logger.get_regression_train_info()
 
-        self.logger.info(f'training completed | best eval loss: {train_info.best_val_loss:.4f}')
+        self.logger.info(f'training completed | best loss: {train_info.best_val_loss:.4f}')
 
         model_state_manager.load_best_model_state(self.model)
         model_state_manager.save_models([self.model])
