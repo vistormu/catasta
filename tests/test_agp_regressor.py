@@ -40,7 +40,7 @@ def main() -> None:
 
     model = ApproximateGPRegressor(
         n_inducing_points=n_inducing_points,
-        n_inputs=n_dim,
+        context_length=n_dim,
         kernel="rq",
         mean="constant"
     )
