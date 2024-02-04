@@ -7,17 +7,92 @@ from torch.nn import (
     Sequential,
     ModuleList,
     Dropout,
+    Softmax,
+    GELU,
 )
 from torch.fft import fft
 
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
-from .modules import (
-    posemb_sincos_1d,
-    Attention,
-    FeedForward,
-)
+
+def posemb_sincos_1d(patches: Tensor, temperature: int = 10000) -> Tensor:
+    n: int = patches.shape[1]
+    d_model: int = patches.shape[2]
+    device: torch.device = patches.device
+    dtype: torch.dtype = patches.dtype
+
+    if (d_model % 2) != 0:
+        raise ValueError(f'feature dimension must be multiple of 2 for sincos emb. got {d_model}')
+
+    n_tensor: Tensor = torch.arange(n, device=device)
+    omega: Tensor = torch.arange(d_model // 2, device=device) / (d_model // 2 - 1)
+    omega = 1.0 / (temperature ** omega)
+
+    n_tensor = n_tensor.flatten()[:, None] * omega[None, :]
+    pe: Tensor = torch.cat((n_tensor.sin(), n_tensor.cos()), dim=1)
+
+    return pe.to(dtype)
+
+
+class FeedForward(Module):
+    def __init__(self, *,
+                 d_model: int,
+                 hidden_dim: int,
+                 dropout: float,
+                 ) -> None:
+        super().__init__()
+
+        self.net = Sequential(
+            LayerNorm(d_model),
+            Linear(d_model, hidden_dim),
+            GELU(),
+            Dropout(dropout),
+            Linear(hidden_dim, d_model),
+            Dropout(dropout),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.net(x)
+
+
+class Attention(Module):
+    def __init__(self, *,
+                 d_model: int,
+                 n_heads: int,
+                 head_dim: int,
+                 dropout: float,
+                 ) -> None:
+        super().__init__()
+
+        self.n_heads: int = n_heads
+        self.scale: int = head_dim ** -0.5
+        self.norm = LayerNorm(d_model)
+        self.attend = Softmax(dim=-1)
+        self.dropout = Dropout(dropout)
+
+        inner_dim: int = head_dim * n_heads
+        self.to_qkv = Linear(d_model, inner_dim * 3, bias=False)
+        self.to_out = Sequential(
+            Linear(inner_dim, d_model, bias=False),
+            Dropout(dropout),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.norm(x)
+
+        qkv: Tensor = self.to_qkv(x).chunk(3, dim=-1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.n_heads), qkv)
+
+        dots: Tensor = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+
+        attn: Tensor = self.attend(dots)
+        attn = self.dropout(attn)
+
+        out: Tensor = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+
+        return self.to_out(out)
 
 
 class Transformer(Module):
