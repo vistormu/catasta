@@ -9,6 +9,7 @@ from torch.nn import (
     Dropout,
     Softmax,
     GELU,
+    Identity,
 )
 from torch.fft import fft
 
@@ -40,11 +41,12 @@ class FeedForward(Module):
                  d_model: int,
                  hidden_dim: int,
                  dropout: float,
+                 layer_norm: bool,
                  ) -> None:
         super().__init__()
 
         self.net = Sequential(
-            LayerNorm(d_model),
+            LayerNorm(d_model) if layer_norm else Identity(),
             Linear(d_model, hidden_dim),
             GELU(),
             Dropout(dropout),
@@ -62,12 +64,13 @@ class Attention(Module):
                  n_heads: int,
                  head_dim: int,
                  dropout: float,
+                 layer_norm: bool,
                  ) -> None:
         super().__init__()
 
         self.n_heads: int = n_heads
         self.scale: int = head_dim ** -0.5
-        self.norm = LayerNorm(d_model)
+        self.norm = LayerNorm(d_model) if layer_norm else Identity()
         self.attend = Softmax(dim=-1)
         self.dropout = Dropout(dropout)
 
@@ -103,10 +106,11 @@ class Transformer(Module):
                  head_dim: int,
                  feedforward_dim: int,
                  dropout: float,
+                 layer_norm: bool,
                  ) -> None:
         super().__init__()
 
-        self.norm = LayerNorm(d_model)
+        self.norm = LayerNorm(d_model) if layer_norm else Identity()
         self.layers = ModuleList([])
         for _ in range(n_layers):
             self.layers.append(ModuleList([
@@ -114,10 +118,12 @@ class Transformer(Module):
                           n_heads=n_heads,
                           head_dim=head_dim,
                           dropout=dropout,
+                          layer_norm=layer_norm,
                           ),
                 FeedForward(d_model=d_model,
                             hidden_dim=feedforward_dim,
                             dropout=dropout,
+                            layer_norm=layer_norm,
                             )
             ]))
 
@@ -126,7 +132,9 @@ class Transformer(Module):
             x = attn(x) + x
             x = ff(x) + x
 
-        return self.norm(x)
+        x = self.norm(x)
+
+        return x
 
 
 class TransformerRegressor(Module):
@@ -138,7 +146,8 @@ class TransformerRegressor(Module):
                  n_heads: int,
                  feedforward_dim: int,
                  head_dim: int,
-                 dropout: float,
+                 dropout: float = 0.0,
+                 layer_norm: bool = False,
                  use_fft: bool = False,
                  ) -> None:
         super().__init__()
@@ -151,17 +160,17 @@ class TransformerRegressor(Module):
         self.use_fft = use_fft
 
         self.to_patch_embedding = Sequential(
-            Rearrange('b c (n p) -> b n (p c)', p=patch_size),
-            LayerNorm(patch_size),
+            Rearrange('b (n p) -> b n p', p=patch_size),
+            LayerNorm(patch_size) if layer_norm else Identity(),
             Linear(patch_size, d_model),
-            LayerNorm(d_model),
+            LayerNorm(d_model) if layer_norm else Identity(),
         )
 
         self.to_freq_embedding = Sequential(
-            Rearrange('b c (n p) ri -> b n (p ri c)', p=patch_size),
-            LayerNorm(freq_patch_dim),
+            Rearrange('b (n p) ri -> b n (p ri)', p=patch_size),
+            LayerNorm(freq_patch_dim) if layer_norm else Identity(),
             Linear(freq_patch_dim, d_model),
-            LayerNorm(d_model),
+            LayerNorm(d_model) if layer_norm else Identity(),
         )
 
         self.pos_embedding = posemb_sincos_1d
@@ -174,10 +183,11 @@ class TransformerRegressor(Module):
             head_dim=head_dim,
             feedforward_dim=feedforward_dim,
             dropout=dropout,
+            layer_norm=layer_norm,
         )
 
         self.linear_head = Sequential(
-            LayerNorm(d_model),
+            LayerNorm(d_model) if layer_norm else Identity(),
             Linear(d_model, 1),
         )
 
@@ -188,8 +198,6 @@ class TransformerRegressor(Module):
             return self.no_fft_forward(x)
 
     def no_fft_forward(self, input: Tensor) -> Tensor:
-        input = rearrange(input, 'b s -> b 1 s')
-
         x = self.to_patch_embedding(input)
         x += self.pos_embedding(x)
 
@@ -201,7 +209,6 @@ class TransformerRegressor(Module):
         return x
 
     def fft_forward(self, input: Tensor) -> Tensor:
-        input = rearrange(input, 'b s -> b 1 s')
         freqs: Tensor = torch.view_as_real(fft(input))
 
         x = self.to_patch_embedding(input)
