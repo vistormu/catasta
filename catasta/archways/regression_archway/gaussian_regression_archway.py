@@ -19,8 +19,17 @@ class GaussianRegressionArchway(RegressionArchway):
     def __init__(self, *,
                  model: Module,
                  path: str | None = None,
+                 device: str = "auto",
                  ) -> None:
-        self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if device == "auto":
+            self.device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        elif device == "cpu":
+            self.device: torch.device = torch.device('cpu')
+        elif device == "cuda":
+            self.device: torch.device = torch.device('cuda')
+        else:
+            raise ValueError(f"Unknown device: {device}")
+
         self.dtype: torch.dtype = torch.float32
 
         self.logger = Logger("catasta")
