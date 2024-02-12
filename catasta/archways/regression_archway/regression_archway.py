@@ -9,6 +9,7 @@ from .gaussian_regression_archway import GaussianRegressionArchway
 def RegressionArchway(*,
                       model: Module,
                       path: str | None = None,
+                      device: str = "auto",
                       ) -> IRegressionArchway:
     '''
     Create an "archway" for regression inference.
@@ -31,10 +32,12 @@ def RegressionArchway(*,
         case GP():
             return GaussianRegressionArchway(
                 model=model,
-                path=path
+                path=path,
+                device=device,
             )
         case _:
             return VanillaRegressionArchway(
                 model=model,
-                path=path
+                path=path,
+                device=device,
             )
