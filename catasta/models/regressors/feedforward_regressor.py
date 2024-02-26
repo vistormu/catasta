@@ -32,7 +32,7 @@ class FeedforwardRegressor(Module):
                  input_dim: int,
                  dropout: float,
                  hidden_dims: list[int] = [],
-                 use_norm: bool = True,
+                 use_layer_norm: bool = True,
                  use_batch_norm: bool = False,
                  activation: str = 'relu',
                  ) -> None:
@@ -58,7 +58,7 @@ class FeedforwardRegressor(Module):
                 layers.append(BatchNorm1d(hidden_dims[i]))
 
             # layer norm
-            if use_norm:
+            if use_layer_norm:
                 layers.append(LayerNorm(hidden_dims[i]))
 
             # activation
