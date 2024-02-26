@@ -6,22 +6,37 @@ from torch.nn import (
     HuberLoss,
     PoissonNLLLoss,
     KLDivLoss,
+    CrossEntropyLoss,
+    NLLLoss,
+    BCELoss,
+    BCEWithLogitsLoss,
+    MarginRankingLoss,
+    HingeEmbeddingLoss,
+    MultiLabelMarginLoss,
+    MultiLabelSoftMarginLoss,
 )
+
+loss_functions: dict[str, _Loss] = {
+    "mse": MSELoss(),
+    "l1": L1Loss(),
+    "smooth_l1": SmoothL1Loss(),
+    "huber": HuberLoss(),
+    "poisson": PoissonNLLLoss(),
+    "kl_div": KLDivLoss(),
+    "cross_entropy": CrossEntropyLoss(),
+    "nll": NLLLoss(),
+    "bce": BCELoss(),
+    "bce_with_logits": BCEWithLogitsLoss(),
+    "margin_ranking": MarginRankingLoss(),
+    "hinge_embedding": HingeEmbeddingLoss(),
+    "multi_label_margin": MultiLabelMarginLoss(),
+    "multi_label_soft_margin": MultiLabelSoftMarginLoss(),
+}
 
 
 def get_loss_function(id: str) -> _Loss:
-    match id.lower():
-        case "mse":
-            return MSELoss()
-        case "l1":
-            return L1Loss()
-        case "smooth_l1":
-            return SmoothL1Loss()
-        case "huber":
-            return HuberLoss()
-        case "poisson":
-            return PoissonNLLLoss()
-        case "kl_div":
-            return KLDivLoss()
-        case _:
-            raise ValueError(f"invalid loss function id: {id}")
+    loss_function: _Loss | None = loss_functions.get(id, None)
+    if loss_function is None:
+        raise ValueError(f"Loss function {id} not found")
+
+    return loss_function
