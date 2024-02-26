@@ -9,6 +9,7 @@ from torch.nn import (
     GELU,
     LayerNorm,
     Dropout,
+    BatchNorm1d,
 )
 
 
@@ -32,6 +33,7 @@ class FeedforwardRegressor(Module):
                  dropout: float,
                  hidden_dims: list[int] = [],
                  use_norm: bool = True,
+                 use_batch_norm: bool = False,
                  activation: str = 'relu',
                  ) -> None:
         super().__init__()
@@ -48,10 +50,21 @@ class FeedforwardRegressor(Module):
         n_layers = len(hidden_dims)
 
         for i in range(1, n_layers):
+            # linear
             layers.append(Linear(hidden_dims[i-1], hidden_dims[i]))
+
+            # batch norm
+            if use_batch_norm:
+                layers.append(BatchNorm1d(hidden_dims[i]))
+
+            # layer norm
             if use_norm:
                 layers.append(LayerNorm(hidden_dims[i]))
+
+            # activation
             layers.append(get_actvation_function(activation))
+
+            # dropout
             layers.append(Dropout(dropout))
 
         layers.append(Linear(hidden_dims[-1], 1))
