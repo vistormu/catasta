@@ -6,11 +6,10 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Subset
 
-from .catasta_dataset import CatastaDataset
 from ..transformations import Transformation
 
 
-class RegressionDataset(Dataset, CatastaDataset):
+class RegressionDataset(Dataset):
     def __init__(self, *,
                  root: str,
                  input_transformations: list[Transformation] = [],
