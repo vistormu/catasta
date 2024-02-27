@@ -35,7 +35,7 @@ loss_functions: dict[str, _Loss] = {
 
 
 def get_loss_function(id: str) -> _Loss:
-    loss_function: _Loss | None = loss_functions.get(id, None)
+    loss_function: _Loss | None = loss_functions.get(id.lower(), None)
     if loss_function is None:
         raise ValueError(f"Loss function {id} not found")
 
