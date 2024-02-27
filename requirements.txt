@@ -1,8 +1,8 @@
 numpy
 pandas
 torch
-torchvision
 gpytorch
 vclog
 scipy
 einops
+pillow
