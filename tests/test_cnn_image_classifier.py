@@ -1,8 +1,8 @@
 import numpy as np
 
-from catasta.models import TransformerImageClassifier
+from catasta.models import CNNImageClassifier
 from catasta.datasets import ImageClassificationDataset
-from catasta.scaffolds import ImageClassificationScaffold
+from catasta.scaffolds.classification_scaffold.vanilla_classification_scaffold import VanillaClassificationScaffold
 from catasta.dataclasses import ClassificationTrainInfo, ClassificationEvalInfo
 from catasta.transformations import Custom
 
@@ -12,25 +12,26 @@ from vclog import Logger
 def main() -> None:
     logger: Logger = Logger("catasta")
 
-    model = TransformerImageClassifier(
-        input_shape=(28, 28, 1),
+    model = CNNImageClassifier(
+        input_shape=(28, 28, 3),
         n_classes=10,
-        n_patches=4,
-        d_model=64,
-        n_layers=2,
-        n_heads=2,
-        feedforward_dim=16,
-        head_dim=4,
+        conv_out_channels=[32, 64],
+        conv_kernel_sizes=[3, 3],
+        conv_strides=[1, 1],
+        conv_paddings=[1, 1],
+        pooling_kernel_sizes=[2, 2],
+        pooling_strides=[2, 2],
+        pooling_paddings=[0, 0],
+        feedforward_dims=[128, 64],
         dropout=0.5,
-        layer_norm=True,
-        use_fft=True,
+        activation="relu",
     )
 
     def remove_channel(input: np.ndarray) -> np.ndarray:
-        return input[..., :1]
+        return np.mean(input, axis=2)
 
     input_transformations = [
-        Custom(remove_channel),
+        # Custom(remove_channel),
     ]
 
     dataset = ImageClassificationDataset(
@@ -38,7 +39,7 @@ def main() -> None:
         input_transformations=input_transformations,  # type: ignore
     )
 
-    scaffold = ImageClassificationScaffold(
+    scaffold = VanillaClassificationScaffold(
         model=model,
         dataset=dataset,
         optimizer="adamw",
@@ -47,9 +48,9 @@ def main() -> None:
     )
 
     train_info: ClassificationTrainInfo = scaffold.train(
-        epochs=100,
+        epochs=10,
         batch_size=128,
-        lr=1e-4,
+        lr=1e-3,
         final_lr=None,
         early_stopping=None,
     )

@@ -28,7 +28,7 @@ def main() -> None:
     output_trasnsformations = [
         Custom(lambda x: x[500_000:1_000_000]),
         Custom(lambda x: x-1),
-        # Normalization("minmax"),
+        Normalization("minmax"),
         Decimation(decimation_factor=100),
         Slicing(amount=n_dim - 1, end="left"),
     ]
@@ -46,6 +46,8 @@ def main() -> None:
         input_dim=n_dim,
         hidden_dims=[8, 16, 8],
         dropout=0.0,
+        use_layer_norm=True,
+        activation="relu",
     )
     scaffold = RegressionScaffold(
         model=model,

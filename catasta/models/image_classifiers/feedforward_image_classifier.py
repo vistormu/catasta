@@ -12,6 +12,8 @@ from torch.nn import (
     BatchNorm1d,
 )
 
+from einops import rearrange
+
 
 def get_actvation_function(activation: str) -> Module:
     match activation:
@@ -27,10 +29,11 @@ def get_actvation_function(activation: str) -> Module:
             raise ValueError(f'Activation function {activation} not supported')
 
 
-class FeedforwardRegressor(Module):
+class FeedforwardImageClassifier(Module):
     def __init__(self, *,
-                 input_dim: int,
+                 input_size: tuple[int, int, int],
                  dropout: float,
+                 n_classes: int,
                  hidden_dims: list[int] = [],
                  use_layer_norm: bool = True,
                  use_batch_norm: bool = False,
@@ -38,11 +41,14 @@ class FeedforwardRegressor(Module):
                  ) -> None:
         super().__init__()
 
+        image_height, image_width, image_channels = input_size
+        input_dim: int = image_height * image_width * image_channels
+
         layers: list[Module] = []
 
         # no hidden layers
         if not hidden_dims:
-            self.net = Sequential(Linear(input_dim, 1))
+            self.net = Sequential(Linear(input_dim, n_classes))
             return
 
         # hidden layers
@@ -67,11 +73,13 @@ class FeedforwardRegressor(Module):
             # dropout
             layers.append(Dropout(dropout))
 
-        layers.append(Linear(hidden_dims[-1], 1))
+        layers.append(Linear(hidden_dims[-1], n_classes))
 
         self.net: Sequential = Sequential(*layers)
 
     def forward(self, x: Tensor) -> Tensor:
+        x = rearrange(x, "b ... -> b (...)")
+
         x = self.net(x)
 
-        return x.squeeze()
+        return x

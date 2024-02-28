@@ -5,3 +5,4 @@ gpytorch
 vclog
 scipy
 einops
+pillow
