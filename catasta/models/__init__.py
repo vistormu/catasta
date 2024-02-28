@@ -8,3 +8,4 @@ from .regressors.mamba_regressor import MambaRegressor
 # image classifiers
 from .image_classifiers.feedforward_image_classifier import FeedforwardImageClassifier
 from .image_classifiers.transformer_image_classifier import TransformerImageClassifier
+from .image_classifiers.mamba_image_classifier import MambaImageClassifier
