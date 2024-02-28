@@ -36,5 +36,6 @@ class ClassificationEvalInfo:
         sensitivity: str = f"sensitivity:{self.sensitivity.mean(): .4f}"
         specificity: str = f"specificity:{self.specificity.mean(): .4f}"
         f1: str = f"f1:{self.f1.mean(): .4f}"
+        confusion_matrix: str = f"confusion_matrix:\n{self.confusion_matrix}"
 
-        return "\n".join([accuracy, precision, sensitivity, specificity, f1])
+        return "\n".join([accuracy, precision, sensitivity, specificity, f1, confusion_matrix])

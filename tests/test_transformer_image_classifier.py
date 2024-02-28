@@ -1,49 +1,65 @@
-from catasta.models import TransformerImageClassifier
-from catasta.scaffolds import ClassifierScaffold
-from catasta.datasets import ImageDataset
-from catasta.entities import TrainInfo
-from catasta.datasets.classifier_dataset import ClassifierDataset
+import numpy as np
 
-import matplotlib.pyplot as plt
+from catasta.models import TransformerImageClassifier
+from catasta.datasets import ImageClassificationDataset
+from catasta.scaffolds import ImageClassificationScaffold
+from catasta.dataclasses import ClassificationTrainInfo, ClassificationEvalInfo
+from catasta.transformations import Custom
+
+from vclog import Logger
 
 
 def main() -> None:
-    # Model parameters
-    sequence_length: int = 256
-    n_heads: int = 4
-    n_embeddings: int = 256
-    n_layers: int = 6
-    feedforward_dim: int = 512
+    logger: Logger = Logger("catasta")
 
-    # Training parameters
-    batch_size: int = 8
-    learning_rate: float = 6e-4
-    epochs: int = 20
-    log_interval: int = 1
-    eval_iters: int = 10
+    model = TransformerImageClassifier(
+        input_shape=(28, 28, 1),
+        n_classes=10,
+        n_patches=4,
+        d_model=64,
+        n_layers=2,
+        n_heads=2,
+        feedforward_dim=16,
+        head_dim=4,
+        dropout=0.5,
+        layer_norm=True,
+        use_fft=True,
+    )
 
-    # dataset = ImageDataset(root="tests/data/images_resized/")
-    dataset = ClassifierDataset(root="tests/data/images_resized/")
+    def remove_channel(input: np.ndarray) -> np.ndarray:
+        return input[..., :1]
 
-    model = TransformerImageClassifier(embedding_dim=n_embeddings,
-                                       patch_size=sequence_length//32,
-                                       n_heads=n_heads,
-                                       n_layers=n_layers,
-                                       image_size=sequence_length,
-                                       feedforward_dim=feedforward_dim,
-                                       n_classes=dataset.n_classes,
-                                       )
+    input_transformations = [
+        Custom(remove_channel),
+    ]
 
-    scaffold = ClassifierScaffold(model=model, dataset=dataset)
+    dataset = ImageClassificationDataset(
+        root="tests/data/mnist",
+        input_transformations=input_transformations,  # type: ignore
+    )
 
-    # Train model
-    train_info_list: list[TrainInfo] = scaffold.train(batch_size=batch_size,
-                                                      learning_rate=learning_rate,
-                                                      epochs=epochs,
-                                                      log_interval=log_interval,
-                                                      eval_iters=eval_iters,
-                                                      )
+    scaffold = ImageClassificationScaffold(
+        model=model,
+        dataset=dataset,
+        optimizer="adamw",
+        loss_function="cross_entropy",
+        save_path=None,
+    )
+
+    train_info: ClassificationTrainInfo = scaffold.train(
+        epochs=100,
+        batch_size=128,
+        lr=1e-4,
+        final_lr=None,
+        early_stopping=None,
+    )
+
+    logger.info(train_info.best_val_accuracy)
+
+    eval_info: ClassificationEvalInfo = scaffold.evaluate()
+
+    logger.info(eval_info)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
