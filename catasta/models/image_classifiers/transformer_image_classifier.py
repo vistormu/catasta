@@ -150,6 +150,7 @@ class TransformerImageClassifier(Module):
                  use_fft: bool = False,
                  ) -> None:
         super().__init__()
+
         image_height: int = input_shape[0]
         image_width: int = input_shape[1]
         image_channels: int = input_shape[2]
@@ -202,10 +203,7 @@ class TransformerImageClassifier(Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        if self.use_fft:
-            return self.fft_forward(x)
-        else:
-            return self.no_fft_forward(x)
+        return self.fft_forward(x) if self.use_fft else self.no_fft_forward(x)
 
     def no_fft_forward(self, input: Tensor) -> Tensor:
         x = self.to_patch_embedding(input)
@@ -232,6 +230,6 @@ class TransformerImageClassifier(Module):
         x = self.transformer(x)
         x = x.mean(dim=1)
 
-        x = self.linear_head(x).squeeze()
+        x = self.linear_head(x)
 
         return x
