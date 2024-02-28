@@ -13,7 +13,7 @@ def main() -> None:
     logger: Logger = Logger("catasta")
 
     model = FeedforwardImageClassifier(
-        input_dim=28*28,
+        input_size=(28, 28, 1),
         n_classes=10,
         hidden_dims=[16, 16, 16],
         activation="relu",

@@ -31,7 +31,7 @@ def get_actvation_function(activation: str) -> Module:
 
 class FeedforwardImageClassifier(Module):
     def __init__(self, *,
-                 input_dim: int,
+                 input_size: tuple[int, int, int],
                  dropout: float,
                  n_classes: int,
                  hidden_dims: list[int] = [],
@@ -41,11 +41,14 @@ class FeedforwardImageClassifier(Module):
                  ) -> None:
         super().__init__()
 
+        image_height, image_width, image_channels = input_size
+        input_dim: int = image_height * image_width * image_channels
+
         layers: list[Module] = []
 
         # no hidden layers
         if not hidden_dims:
-            self.net = Sequential(Linear(input_dim, 1))
+            self.net = Sequential(Linear(input_dim, n_classes))
             return
 
         # hidden layers
@@ -77,6 +80,6 @@ class FeedforwardImageClassifier(Module):
     def forward(self, x: Tensor) -> Tensor:
         x = rearrange(x, "b ... -> b (...)")
 
-        x = self.net(x).squeeze()
+        x = self.net(x)
 
         return x
