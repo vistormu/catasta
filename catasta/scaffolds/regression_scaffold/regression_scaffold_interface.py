@@ -43,3 +43,14 @@ class RegressionScaffold(ABC):
         RegressionEvalInfo
             Evaluation information
         """
+
+    @abstractmethod
+    def save(self, path: str) -> None:
+        """
+        Save the model
+
+        Arguments
+        ---------
+        path: str
+            Path to save the model
+        """

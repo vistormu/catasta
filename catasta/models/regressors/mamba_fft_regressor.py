@@ -182,7 +182,9 @@ class MambaFFTRegressor(Module):
                  bias: bool = False,
                  ) -> None:
         super().__init__()
+
         patch_size: int = context_length // n_patches
+
         if context_length % patch_size != 0:
             raise ValueError(f"sequence length {context_length} must be divisible by patch size {patch_size}")
 

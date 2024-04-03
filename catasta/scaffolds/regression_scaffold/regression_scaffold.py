@@ -12,7 +12,6 @@ def RegressionScaffold(*,
                        dataset: RegressionDataset,
                        optimizer: str,
                        loss_function: str,
-                       save_path: str | None = None,
                        ) -> IRegressionScaffold:
     '''
     Create a scaffold for regression tasks.
@@ -51,9 +50,6 @@ def RegressionScaffold(*,
             - "predictive_log" (only for Gaussian processes)
             - "variational_marginal_log" (only for Gaussian processes)
 
-    save_path: str | None
-        The path where to save the model. If None, the model is not saved. It must be a directory.
-
     Returns
     -------
     RegressionScaffold
@@ -66,7 +62,6 @@ def RegressionScaffold(*,
                 dataset=dataset,
                 optimizer=optimizer,
                 loss_function=loss_function,
-                save_path=save_path,
             )
         case _:
             return VanillaRegressionScaffold(
@@ -74,5 +69,4 @@ def RegressionScaffold(*,
                 dataset=dataset,
                 optimizer=optimizer,
                 loss_function=loss_function,
-                save_path=save_path,
             )

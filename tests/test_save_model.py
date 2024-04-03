@@ -1,10 +1,9 @@
 import os
 
-import matplotlib.pyplot as plt
-
-from catasta.models import ApproximateGPRegressor, TransformerRegressor, FeedforwardRegressor
+from catasta.models import TransformerRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
+from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo
 from catasta.transformations import (
     Normalization,
     Decimation,
@@ -13,74 +12,63 @@ from catasta.transformations import (
     Custom,
 )
 
+from vclog import Logger
+
 
 def main() -> None:
-    n_dim: int = 16
-    dataset_root: str = "tests/data/nylon_elastic/paper/strain/mixed_10_20/"
+    n_dim: int = 768
+    dataset_root: str = "tests/data/nylon_elastic/strain/"
     input_trasnsformations = [
-        Custom(lambda x: x[500_000:1_500_000]),
+        Custom(lambda x: x[500_000:1_000_000]),
         Normalization("minmax"),
-        Decimation(decimation_factor=100),
+        Decimation(decimation_factor=10),
         WindowSliding(window_size=n_dim, stride=1),
     ]
     output_trasnsformations = [
-        Custom(lambda x: x[500_000:1_500_000]),
+        Custom(lambda x: x[500_000:1_000_000]),
         Normalization("minmax"),
-        Decimation(decimation_factor=100),
-        Slicing(amount=n_dim-1, end="left"),
+        Decimation(decimation_factor=10),
+        Slicing(amount=n_dim - 1, end="left"),
     ]
-    n_files: int = len(os.listdir(dataset_root))
-    train_split: float = (n_files - 1) / n_files
+
+    n_files = len(os.listdir(dataset_root))
+    train_split = (n_files-1) / n_files
     dataset = RegressionDataset(
         root=dataset_root,
         input_transformations=input_trasnsformations,
         output_transformations=output_trasnsformations,
-        splits=(train_split, 1 - train_split, 0.0),
-        # splits=(train_split, 0.0, 1 - train_split),
-    )
-    # model = TransformerRegressor(
-    #     context_length=n_dim,
-    #     n_patches=2,
-    #     d_model=64,
-    #     n_heads=2,
-    #     n_layers=4,
-    #     feedforward_dim=32,
-    #     head_dim=2,
-    #     dropout=0.0,
-    #     use_fft=True,
-    # )
-    model = FeedforwardRegressor(
-        input_dim=n_dim,
-        hidden_dims=[8, 16, 8],
-        dropout=0.0,
+        splits=(train_split, 1-train_split, 0.0)
     )
 
-    # model = ApproximateGPRegressor(
-    #     n_inducing_points=16,
-    #     n_inputs=n_dim,
-    #     kernel="rq",
-    #     mean="constant"
-    # )
+    model = TransformerRegressor(
+        context_length=n_dim,
+        n_patches=8,
+        d_model=8,
+        n_heads=4,
+        n_layers=2,
+        feedforward_dim=4,
+        head_dim=4,
+        dropout=0.0,
+    )
     scaffold = RegressionScaffold(
         model=model,
         dataset=dataset,
         optimizer="adamw",
         loss_function="mse",
-        # loss_function="variational_elbo",
-        save_path="tests/models/",
     )
 
-    scaffold.train(
-        epochs=100,
+    train_info: RegressionTrainInfo = scaffold.train(
+        epochs=10,
         batch_size=256,
         lr=1e-3,
+        final_lr=1e-4,
+        early_stopping=(10, 0.01),
     )
+    info: RegressionEvalInfo = scaffold.evaluate()
 
-    metrics = scaffold.evaluate()
-    print(metrics)
+    scaffold.save("tests/models/")
 
-    plt.plot(metrics.predicted_output, label="predicted")
-    plt.show()
+    Logger.debug(info)
 
 
 if __name__ == '__main__':

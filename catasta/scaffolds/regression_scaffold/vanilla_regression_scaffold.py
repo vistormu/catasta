@@ -1,4 +1,5 @@
 import time
+import os
 
 import numpy as np
 
@@ -9,6 +10,7 @@ from torch.utils.data import DataLoader
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import StepLR
 from torch.nn.modules.loss import _Loss
+import torch.onnx as onnx
 
 from vclog import Logger
 
@@ -24,7 +26,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
                  dataset: RegressionDataset,
                  optimizer: str = "adam",
                  loss_function: str = "mse",
-                 save_path: str | None = None,
                  ) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
@@ -35,10 +36,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
 
         self.optimmizer_id: str = optimizer
         self.loss_function_id: str = loss_function
-
-        if save_path is not None and "." in save_path:
-            raise ValueError("save path must be a directory")
-        self.save_path: str | None = save_path
 
         self.logger: Logger = Logger("catasta")
 
@@ -66,7 +63,7 @@ class VanillaRegressionScaffold(RegressionScaffold):
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
-        model_state_manager = ModelStateManager(early_stopping, self.save_path)
+        model_state_manager = ModelStateManager(early_stopping)
 
         training_logger = RegressionTrainingLogger(epochs)
 
@@ -120,7 +117,6 @@ class VanillaRegressionScaffold(RegressionScaffold):
         self.logger.info(f'training completed | best loss: {train_info.best_val_loss:.4f}')
 
         model_state_manager.load_best_model_state(self.model)
-        model_state_manager.save_models([self.model])
 
         return train_info
 
@@ -174,3 +170,16 @@ class VanillaRegressionScaffold(RegressionScaffold):
         self.model.train()
 
         return np.mean(losses).astype(float)
+
+    def save(self, path: str) -> None:
+        if "." in path:
+            raise ValueError("save path must be a directory")
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        model_name: str = self.model.__class__.__name__
+        model_path = os.path.join(path, f"{model_name}.pt")
+
+        torch.save(self.model.state_dict(), model_path)
+        self.logger.info(f"saved model {model_name} to {path}")
