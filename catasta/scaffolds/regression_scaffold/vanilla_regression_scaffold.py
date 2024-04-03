@@ -31,6 +31,7 @@ class VanillaRegressionScaffold(RegressionScaffold):
         self.dtype: torch.dtype = torch.float32
 
         self.model: Module = model.to(self.device)
+        self.context_length: int = 0
 
         self.dataset: RegressionDataset = dataset
 
@@ -75,6 +76,9 @@ class VanillaRegressionScaffold(RegressionScaffold):
             start_time: float = time.time()
             for x_batch, y_batch in data_loader:
                 optimizer.zero_grad()
+
+                if not self.context_length:
+                    self.context_length = x_batch.shape[1]
 
                 x_batch = x_batch.to(self.device, dtype=self.dtype)
                 y_batch = y_batch.to(self.device, dtype=self.dtype)
@@ -171,15 +175,46 @@ class VanillaRegressionScaffold(RegressionScaffold):
 
         return np.mean(losses).astype(float)
 
-    def save(self, path: str) -> None:
+    def save(self, *,
+             path: str,
+             to_onnx: bool = False,
+             dtype: str = "float32",
+             context_length: int | None = None,
+             ) -> None:
         if "." in path:
             raise ValueError("save path must be a directory")
 
         if not os.path.exists(path):
             os.makedirs(path)
 
-        model_name: str = self.model.__class__.__name__
-        model_path = os.path.join(path, f"{model_name}.pt")
+        if dtype not in ["float16", "float32", "float64"]:
+            raise ValueError(f"invalid dtype: {dtype}")
 
-        torch.save(self.model.state_dict(), model_path)
+        model_dtype = torch.float16 if dtype == "float16" else torch.float32 if dtype == "float32" else torch.float64
+        model_device = torch.device("cpu")
+        self.model = self.model.to(model_device, model_dtype)
+
+        model_name: str = self.model.__class__.__name__
+
+        if not to_onnx:
+            model_path = os.path.join(path, f"{model_name}.pt")
+            torch.save(self.model.state_dict(), model_path)
+        else:
+            if not self.context_length and not context_length:
+                raise ValueError("could not infer the context length for the model. Please, provide it manually.")
+
+            context_length = self.context_length if not context_length else context_length
+            dummy_input = torch.randn(1, context_length).to(model_dtype)
+            model_path = os.path.join(path, f"{model_name}.onnx")
+
+            onnx.export(
+                self.model,
+                dummy_input,
+                model_path,
+                input_names=["input"],
+                output_names=["output"],
+                dynamic_axes={"input": {0: "batch_size", 1: "context_length"},
+                              "output": {0: "prediction"}},
+            )
+
         self.logger.info(f"saved model {model_name} to {path}")

@@ -45,7 +45,12 @@ class RegressionScaffold(ABC):
         """
 
     @abstractmethod
-    def save(self, path: str) -> None:
+    def save(self, *,
+             path: str,
+             to_onnx: bool = False,
+             dtype: str = "float32",
+             context_length: int | None = None,
+             ) -> None:
         """
         Save the model
 
@@ -53,4 +58,10 @@ class RegressionScaffold(ABC):
         ---------
         path: str
             Path to save the model
+        to_onnx: bool
+            Whether to save the model to ONNX format
+        dtype: str
+            Data type to save the model in
+        context_length: int
+            Context length of the model to provide manually
         """

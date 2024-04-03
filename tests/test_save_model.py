@@ -65,7 +65,7 @@ def vanilla() -> None:
     info: RegressionEvalInfo = scaffold.evaluate()
     Logger.debug(info)
 
-    scaffold.save("tests/models/")
+    scaffold.save(path="tests/models/", to_onnx=True)
 
 
 def gp():
@@ -112,7 +112,7 @@ def gp():
     info: RegressionEvalInfo = scaffold.evaluate()
     Logger.debug(info)
 
-    scaffold.save("tests/models/")
+    scaffold.save(path="tests/models/")
 
 
 if __name__ == '__main__':

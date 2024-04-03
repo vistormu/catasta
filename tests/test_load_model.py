@@ -69,6 +69,52 @@ def vanilla() -> None:
     print(info)
 
 
+def vanilla_onnx() -> None:
+    path: str = "tests/models/"
+
+    n_dim: int = 768
+    archway = RegressionArchway(
+        path=path,
+        from_onnx=True,
+    )
+
+    df = pd.read_csv("tests/data/nylon_elastic/strain/tri_30.csv")
+    input = df["input"].to_numpy().flatten()
+    output = df["output"].to_numpy().flatten()
+
+    input_transformations = [
+        Custom(lambda x: x[1_500_000: 2_000_000]),
+        Normalization("minmax"),
+        Decimation(decimation_factor=100),
+        WindowSliding(window_size=n_dim, stride=1),
+    ]
+    output_transformations = [
+        Custom(lambda x: x[1_500_000: 2_000_000]),
+        Normalization("minmax"),
+        Decimation(decimation_factor=100),
+        Slicing(amount=n_dim - 1, end="left"),
+    ]
+
+    for t in input_transformations:
+        input = t(input)
+    for t in output_transformations:
+        output = t(output)
+
+    prediction = archway.predict(input)
+
+    predicted_output = prediction.value
+    true_output = output[-len(predicted_output):]
+    true_input = input[-len(predicted_output):]
+
+    info = RegressionEvalInfo(
+        true_input=true_input,
+        predicted_output=predicted_output,
+        true_output=true_output,
+    )
+
+    print(info)
+
+
 def gp() -> None:
     path: str = "tests/models/"
 
@@ -121,5 +167,9 @@ def gp() -> None:
 
 
 if __name__ == "__main__":
+    print("vanilla")
     vanilla()
+    print("vanilla_onnx")
+    vanilla_onnx()
+    print("gp")
     gp()
