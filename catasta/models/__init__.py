@@ -5,6 +5,7 @@ from .regressors.transformer_regressor import TransformerRegressor
 from .regressors.transformer_fft_regressor import TransformerFFTRegressor
 from .regressors.rbf_regressor import RBFRegressor
 from .regressors.mamba_regressor import MambaRegressor
+from .regressors.mamba_fft_regressor import MambaFFTRegressor
 
 # image classifiers
 from .image_classifiers.feedforward_image_classifier import FeedforwardImageClassifier
