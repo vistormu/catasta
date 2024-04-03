@@ -11,6 +11,7 @@ from torch.nn import (
     GELU,
     Identity,
 )
+from torch.fft import fft
 
 from einops import rearrange
 from einops.layers.torch import Rearrange
@@ -136,7 +137,7 @@ class Transformer(Module):
         return x
 
 
-class TransformerRegressor(Module):
+class TransformerFFTRegressor(Module):
     def __init__(self, *,
                  context_length: int,
                  n_patches: int,
@@ -150,6 +151,7 @@ class TransformerRegressor(Module):
                  ) -> None:
         super().__init__()
         patch_size: int = context_length // n_patches
+        freq_patch_dim: int = patch_size * 2
 
         if context_length % patch_size != 0:
             raise ValueError(f"sequence length {context_length} must be divisible by patch size {patch_size}")
@@ -158,6 +160,13 @@ class TransformerRegressor(Module):
             Rearrange('b (n p) -> b n p', p=patch_size),
             LayerNorm(patch_size) if layer_norm else Identity(),
             Linear(patch_size, d_model),
+            LayerNorm(d_model) if layer_norm else Identity(),
+        )
+
+        self.to_freq_embedding = Sequential(
+            Rearrange('b (n p) ri -> b n (p ri)', p=patch_size),
+            LayerNorm(freq_patch_dim) if layer_norm else Identity(),
+            Linear(freq_patch_dim, d_model),
             LayerNorm(d_model) if layer_norm else Identity(),
         )
 
@@ -180,8 +189,15 @@ class TransformerRegressor(Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
+        freqs: Tensor = torch.view_as_real(fft(x))
+
         x = self.to_patch_embedding(x)
+        f = self.to_freq_embedding(freqs)
+
         x += self.pos_embedding(x)
+        f += self.pos_embedding(f)
+
+        x = torch.cat((x, f), dim=1)
 
         x = self.transformer(x)
         x = x.mean(dim=1)

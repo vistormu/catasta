@@ -1,6 +1,6 @@
 import os
 
-from catasta.models import TransformerRegressor
+from catasta.models import TransformerFFTRegressor
 from catasta.datasets import RegressionDataset
 from catasta.scaffolds import RegressionScaffold
 from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo
@@ -40,7 +40,7 @@ def main() -> None:
         splits=(train_split, 1-train_split, 0.0)
     )
 
-    model = TransformerRegressor(
+    model = TransformerFFTRegressor(
         context_length=n_dim,
         n_patches=8,
         d_model=8,
