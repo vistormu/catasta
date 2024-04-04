@@ -1,8 +1,10 @@
 import time
+import os
 
 import numpy as np
 
 import torch
+import torch.onnx as onnx
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
@@ -12,7 +14,7 @@ from torch.nn.modules.loss import _Loss
 
 from vclog import Logger
 
-from ...datasets import ImageClassificationDataset
+from ...datasets import ClassificationDataset
 from ...dataclasses import ClassificationTrainInfo, ClassificationEvalInfo
 from ...utils import get_optimizer, get_loss_function, ClassificationTrainingLogger, ModelStateManager
 
@@ -20,24 +22,20 @@ from ...utils import get_optimizer, get_loss_function, ClassificationTrainingLog
 class VanillaClassificationScaffold:
     def __init__(self, *,
                  model: Module,
-                 dataset: ImageClassificationDataset,
+                 dataset: ClassificationDataset,
                  optimizer: str = "adam",
                  loss_function: str = "mse",
-                 save_path: str | None = None,
                  ) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
 
         self.model: Module = model.to(self.device)
+        self.shape: tuple | None = None
 
-        self.dataset: ImageClassificationDataset = dataset
+        self.dataset: ClassificationDataset = dataset
 
         self.optimmizer_id: str = optimizer
         self.loss_function_id: str = loss_function
-
-        if save_path is not None and "." in save_path:
-            raise ValueError("save path must be a directory")
-        self.save_path: str | None = save_path
 
         self.logger: Logger = Logger("catasta")
 
@@ -65,7 +63,7 @@ class VanillaClassificationScaffold:
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
-        model_state_manager = ModelStateManager(early_stopping, self.save_path)
+        model_state_manager = ModelStateManager(early_stopping)
 
         training_logger = ClassificationTrainingLogger(epochs)
 
@@ -77,6 +75,9 @@ class VanillaClassificationScaffold:
             start_time: float = time.time()
             for x_batch, y_batch in data_loader:
                 optimizer.zero_grad()
+
+                if self.shape is None:
+                    self.shape = x_batch.shape[1:]
 
                 x_batch = x_batch.to(self.device, dtype=self.dtype)
                 y_batch = y_batch.to(self.device, dtype=torch.long)
@@ -121,7 +122,6 @@ class VanillaClassificationScaffold:
         self.logger.info(f'training completed | best loss: {train_info.best_val_loss:.4f}')
 
         model_state_manager.load_best_model_state(self.model)
-        model_state_manager.save_models([self.model])
 
         return train_info
 
@@ -188,3 +188,47 @@ class VanillaClassificationScaffold:
         val_accuracy: float = np.mean(np.concatenate(predictions) == np.concatenate(targets)).astype(float)
 
         return val_loss, val_accuracy
+
+    def save(self, *,
+             path: str,
+             to_onnx: bool = False,
+             dtype: str = "float32",
+             shape: tuple | None = None,
+             ) -> None:
+        if "." in path:
+            raise ValueError("save path must be a directory")
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        if dtype not in ["float16", "float32", "float64"]:
+            raise ValueError(f"invalid dtype: {dtype}")
+
+        model_dtype = torch.float16 if dtype == "float16" else torch.float32 if dtype == "float32" else torch.float64
+        model_device = torch.device("cpu")
+        self.model = self.model.to(model_device, model_dtype)
+
+        model_name: str = self.model.__class__.__name__
+
+        if not to_onnx:
+            model_path = os.path.join(path, f"{model_name}.pt")
+            torch.save(self.model.state_dict(), model_path)
+        else:
+            if self.shape is None and shape is None:
+                raise ValueError("could not infer shape, please provide shape argument")
+
+            shape = self.shape if self.shape is not None else shape
+            dummy_input = torch.randn(1, *shape).to(model_device, model_dtype)  # type: ignore
+            model_path = os.path.join(path, f"{model_name}.onnx")
+
+            onnx.export(
+                self.model,
+                dummy_input,
+                model_path,
+                input_names=["input"],
+                output_names=["output"],
+                dynamic_axes={"input": {0: "batch_size"},
+                              "output": {0: "prediction"}},
+            )
+
+        self.logger.info(f"saved model {model_name} to {path}")

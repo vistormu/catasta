@@ -1,4 +1,5 @@
 import time
+import os
 
 import numpy as np
 
@@ -8,8 +9,8 @@ from torch.nn import Module
 from torch.utils.data import DataLoader
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import StepLR
-
 from torch.distributions import Distribution
+import torch.onnx as onnx
 
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import MarginalLogLikelihood
@@ -29,21 +30,18 @@ class GaussianRegressionScaffold(RegressionScaffold):
                  dataset: RegressionDataset,
                  optimizer: str = "adam",
                  loss_function: str = "variational_elbo",
-                 save_path: str | None = None,
                  ) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
 
         self.model: Module = model.to(self.device)
         self.likelihood = GaussianLikelihood().to(self.device)
+        self.context_length: int = 0
+
         self.dataset: RegressionDataset = dataset
 
         self.optimizer_id: str = optimizer
         self.loss_function_id: str = loss_function
-
-        if save_path is not None and "." in save_path:
-            raise ValueError("save path must be a directory")
-        self.save_path: str | None = save_path
 
         self.logger: Logger = Logger("catasta")
 
@@ -53,7 +51,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
         n_parameters: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         self.logger.info(f"training model {self.model.__class__.__name__} ({n_parameters} parameters)")
 
-    def train(self,
+    def train(self, *,
               epochs: int = 100,
               batch_size: int = 32,
               lr: float = 1e-3,
@@ -69,7 +67,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
-        model_state_manager = ModelStateManager(early_stopping, self.save_path)
+        model_state_manager = ModelStateManager(early_stopping)
 
         training_logger: RegressionTrainingLogger = RegressionTrainingLogger(epochs)
 
@@ -81,6 +79,9 @@ class GaussianRegressionScaffold(RegressionScaffold):
             start_time: float = time.time()
             for x_batch, y_batch in data_loader:
                 optimizer.zero_grad()
+
+                if not self.context_length:
+                    self.context_length = x_batch.shape[1]
 
                 x_batch = x_batch.to(self.device, dtype=self.dtype)
                 y_batch = y_batch.to(self.device, dtype=self.dtype)
@@ -123,7 +124,6 @@ class GaussianRegressionScaffold(RegressionScaffold):
         self.logger.info(f"training completed | best loss: {train_info.best_train_loss:.4f}")
 
         model_state_manager.load_best_model_state(self.model)
-        model_state_manager.save_models([self.model, self.likelihood])
 
         return train_info
 
@@ -148,3 +148,64 @@ class GaussianRegressionScaffold(RegressionScaffold):
         predicted_std: np.ndarray = output.stddev.cpu().numpy()
 
         return RegressionEvalInfo(true_input, true_output, predicted_output, predicted_std)
+
+    def save(self, *,
+             path: str,
+             to_onnx: bool = False,
+             dtype: str = "float32",
+             context_length: int | None = None,
+             ) -> None:
+        if "." in path:
+            raise ValueError("save path must be a directory")
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        if dtype not in ["float16", "float32", "float64"]:
+            raise ValueError(f"Unknown dtype: {dtype}")
+
+        model_dtype: torch.dtype = torch.float16 if dtype == "float16" else torch.float32 if dtype == "float32" else torch.float64
+        model_device = torch.device("cpu")
+        self.model.to(model_device, model_dtype)
+        self.likelihood.to(model_device, model_dtype)
+
+        model_name: str = self.model.__class__.__name__
+        likelihood_name: str = self.likelihood.__class__.__name__
+
+        if not to_onnx:
+            model_path = os.path.join(path, f"{model_name}.pt")
+            torch.save(self.model.state_dict(), model_path)
+            likelihood_path = os.path.join(path, f"{likelihood_name}.pt")
+            torch.save(self.likelihood.state_dict(), likelihood_path)
+        else:
+            raise NotImplementedError("ONNX export is not supported yet")
+            # if not self.context_length and not context_length:
+            #     raise ValueError("could not infer the context length for the model. Please, provide it manually.")
+
+            # context_length = self.context_length if context_length is None else context_length
+            # dummy_input = torch.randn(1, context_length).to(model_device, model_dtype)
+            # model_path = os.path.join(path, f"{model_name}.onnx")
+
+            # onnx.export(
+            #     self.model.to(model_device, model_dtype),
+            #     dummy_input,
+            #     model_path,
+            #     input_names=["input"],
+            #     output_names=["output"],
+            #     dynamic_axes={"input": {0: "batch_size", 1: "context_length"},
+            #                   "output": {0: "prediction"}},
+            # )
+
+            # likelihood_path = os.path.join(path, f"{likelihood_name}.onnx")
+
+            # onnx.export(
+            #     self.likelihood,
+            #     dummy_input,
+            #     likelihood_path,
+            #     input_names=["input"],
+            #     output_names=["output"],
+            #     dynamic_axes={"input": {0: "batch_size", 1: "context_length"},
+            #                   "output": {0: "prediction"}},
+            # )
+
+        self.logger.info(f"saved model {model_name} to {path}")

@@ -49,7 +49,6 @@ def main() -> None:
         feedforward_dim=4,
         head_dim=4,
         dropout=0.0,
-        use_fft=False,
     )
     scaffold = RegressionScaffold(
         model=model,
@@ -59,7 +58,7 @@ def main() -> None:
     )
 
     train_info: RegressionTrainInfo = scaffold.train(
-        epochs=100,
+        epochs=10,
         batch_size=256,
         lr=1e-3,
         final_lr=1e-4,

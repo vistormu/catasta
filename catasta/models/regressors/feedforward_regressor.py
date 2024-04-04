@@ -29,7 +29,7 @@ def get_actvation_function(activation: str) -> Module:
 
 class FeedforwardRegressor(Module):
     def __init__(self, *,
-                 input_dim: int,
+                 context_length: int,
                  dropout: float,
                  hidden_dims: list[int] = [],
                  use_layer_norm: bool = True,
@@ -42,11 +42,11 @@ class FeedforwardRegressor(Module):
 
         # no hidden layers
         if not hidden_dims:
-            self.net = Sequential(Linear(input_dim, 1))
+            self.net = Sequential(Linear(context_length, 1))
             return
 
         # hidden layers
-        layers.append(Linear(input_dim, hidden_dims[0]))
+        layers.append(Linear(context_length, hidden_dims[0]))
         n_layers = len(hidden_dims)
 
         for i in range(1, n_layers):

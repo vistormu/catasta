@@ -43,3 +43,25 @@ class RegressionScaffold(ABC):
         RegressionEvalInfo
             Evaluation information
         """
+
+    @abstractmethod
+    def save(self, *,
+             path: str,
+             to_onnx: bool = False,
+             dtype: str = "float32",
+             context_length: int | None = None,
+             ) -> None:
+        """
+        Save the model
+
+        Arguments
+        ---------
+        path: str
+            Path to save the model
+        to_onnx: bool
+            Whether to save the model to ONNX format
+        dtype: str
+            Data type to save the model in
+        context_length: int
+            Context length of the model to provide manually
+        """

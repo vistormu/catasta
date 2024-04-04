@@ -10,11 +10,10 @@ import numpy as np
 
 from vclog import Logger
 
-from ...dataclasses import RegressionPrediction
-from .regression_archway_interface import RegressionArchway
+from ...dataclasses import ClassificationPrediction
 
 
-class VanillaRegressionArchway(RegressionArchway):
+class VanillaClassificationArchway:
     def __init__(self, *,
                  model: Module | None = None,
                  path: str | None = None,
@@ -84,13 +83,13 @@ class VanillaRegressionArchway(RegressionArchway):
         raise ValueError("could not load model. Check the provided arguments")
 
     @torch.no_grad()
-    def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
+    def predict(self, input: np.ndarray | Tensor) -> ClassificationPrediction:
         if self.from_onnx:
             output: np.ndarray = self._onnx_predict(input)
         else:
             output: np.ndarray = self._pytorch_predict(input)
 
-        return RegressionPrediction(output)
+        return ClassificationPrediction(output, np.argmax(output, axis=1))
 
     @torch.no_grad()
     def _pytorch_predict(self, input: np.ndarray | Tensor) -> np.ndarray:

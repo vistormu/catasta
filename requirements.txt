@@ -6,3 +6,5 @@ vclog
 scipy
 einops
 pillow
+onnx
+onnxruntime

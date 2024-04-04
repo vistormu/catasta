@@ -11,7 +11,6 @@ from torch.nn import (
     GELU,
     Identity,
 )
-from torch.fft import fft2
 
 from einops import rearrange
 from einops.layers.torch import Rearrange
@@ -135,7 +134,7 @@ class Transformer(Module):
         return x
 
 
-class TransformerImageClassifier(Module):
+class TransformerClassifier(Module):
     def __init__(self, *,
                  input_shape: tuple[int, int, int],
                  n_classes: int,
@@ -147,7 +146,6 @@ class TransformerImageClassifier(Module):
                  head_dim: int,
                  dropout: float = 0.0,
                  layer_norm: bool = False,
-                 use_fft: bool = False,
                  ) -> None:
         super().__init__()
 
@@ -159,24 +157,13 @@ class TransformerImageClassifier(Module):
         patch_width: int = image_width // n_patches
         patch_size: int = patch_height * patch_width * image_channels
 
-        freq_patch_size: int = patch_size * 2
-
         if image_height % n_patches != 0 or image_width % n_patches != 0:
             raise ValueError(f"image size ({input_shape[0]}, {input_shape[1]}) must be divisible by number of patches {n_patches}")
-
-        self.use_fft = use_fft
 
         self.to_patch_embedding = Sequential(
             Rearrange('b (h ph) (w pw) c -> b (h w) (ph pw c)', ph=patch_height, pw=patch_width),
             LayerNorm(patch_size) if layer_norm else Identity(),
             Linear(patch_size, d_model),
-            LayerNorm(d_model) if layer_norm else Identity(),
-        )
-
-        self.to_freq_embedding = Sequential(
-            Rearrange('b (h ph) (w pw) c ri -> b (h w) (ph pw c ri)', ph=patch_height, pw=patch_width),
-            LayerNorm(freq_patch_size) if layer_norm else Identity(),
-            Linear(freq_patch_size, d_model),
             LayerNorm(d_model) if layer_norm else Identity(),
         )
 
@@ -202,30 +189,9 @@ class TransformerImageClassifier(Module):
             Linear(d_model, n_classes),
         )
 
-    def forward(self, x: Tensor) -> Tensor:
-        return self.fft_forward(x) if self.use_fft else self.no_fft_forward(x)
-
-    def no_fft_forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: Tensor) -> Tensor:
         x = self.to_patch_embedding(input)
         x += self.pos_embedding.to(x.device)
-
-        x = self.transformer(x)
-        x = x.mean(dim=1)
-
-        x = self.linear_head(x)
-
-        return x
-
-    def fft_forward(self, input: Tensor) -> Tensor:
-        freqs: Tensor = torch.view_as_real(fft2(input))
-
-        x = self.to_patch_embedding(input)
-        f = self.to_freq_embedding(freqs)
-
-        x += self.pos_embedding.to(x.device)
-        f += self.pos_embedding.to(f.device)
-
-        x = torch.cat((x, f), dim=1)
 
         x = self.transformer(x)
         x = x.mean(dim=1)
