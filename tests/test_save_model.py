@@ -112,9 +112,9 @@ def gp():
     info: RegressionEvalInfo = scaffold.evaluate()
     Logger.debug(info)
 
-    scaffold.save(path="tests/models/")
+    scaffold.save(path="tests/models/gp/", to_onnx=True)
 
 
 if __name__ == '__main__':
-    vanilla()
+    # vanilla()
     gp()
