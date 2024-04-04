@@ -25,8 +25,7 @@ dependencies = [
     "vclog",
     "scipy",
     "pillow",
-    "onnx",
-    "onnxruntime",
+    "onnx"
 ]
 
 [tool.hatch.build.targets.wheel]
