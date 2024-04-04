@@ -1,10 +1,7 @@
-import numpy as np
-
-from catasta.models import CNNImageClassifier
-from catasta.datasets import ImageClassificationDataset
+from catasta.models import CNNClassifier
+from catasta.datasets import ClassificationDataset
 from catasta.scaffolds.classification_scaffold.vanilla_classification_scaffold import VanillaClassificationScaffold
 from catasta.dataclasses import ClassificationTrainInfo, ClassificationEvalInfo
-from catasta.transformations import Custom
 
 from vclog import Logger
 
@@ -12,7 +9,7 @@ from vclog import Logger
 def main() -> None:
     logger: Logger = Logger("catasta")
 
-    model = CNNImageClassifier(
+    model = CNNClassifier(
         input_shape=(28, 28, 3),
         n_classes=10,
         conv_out_channels=[32, 64],
@@ -27,14 +24,7 @@ def main() -> None:
         activation="relu",
     )
 
-    def remove_channel(input: np.ndarray) -> np.ndarray:
-        return np.mean(input, axis=2)
-
-    input_transformations = [
-        # Custom(remove_channel),
-    ]
-
-    dataset = ImageClassificationDataset(
+    dataset = ClassificationDataset(
         root="tests/data/mnist",
         input_transformations=input_transformations,  # type: ignore
     )
@@ -44,7 +34,6 @@ def main() -> None:
         dataset=dataset,
         optimizer="adamw",
         loss_function="cross_entropy",
-        save_path=None,
     )
 
     train_info: ClassificationTrainInfo = scaffold.train(

@@ -166,7 +166,7 @@ def posemb_sincos_2d(h: int, w: int, dim: int, temperature: int = 10000) -> Tens
     return pe.to(torch.float32)
 
 
-class MambaImageClassifier(Module):
+class MambaClassifier(Module):
     def __init__(self, *,
                  input_shape: tuple[int, int, int],
                  n_classes: int,

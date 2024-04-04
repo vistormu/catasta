@@ -135,7 +135,7 @@ class Transformer(Module):
         return x
 
 
-class TransformerImageClassifier(Module):
+class TransformerClassifier(Module):
     def __init__(self, *,
                  input_shape: tuple[int, int, int],
                  n_classes: int,

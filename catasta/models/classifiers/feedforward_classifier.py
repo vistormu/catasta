@@ -29,7 +29,7 @@ def get_actvation_function(activation: str) -> Module:
             raise ValueError(f'Activation function {activation} not supported')
 
 
-class FeedforwardImageClassifier(Module):
+class FeedforwardClassifier(Module):
     def __init__(self, *,
                  input_size: tuple[int, int, int],
                  dropout: float,

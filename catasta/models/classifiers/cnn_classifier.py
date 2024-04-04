@@ -30,7 +30,7 @@ def get_actvation_function(activation: str) -> Module:
             raise ValueError(f'Activation function {activation} not supported')
 
 
-class CNNImageClassifier(Module):
+class CNNClassifier(Module):
     def __init__(self, *,
                  input_shape: tuple[int, int, int],
                  n_classes: int,

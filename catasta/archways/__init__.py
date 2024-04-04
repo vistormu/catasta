@@ -1,1 +1,2 @@
 from .regression_archway.regression_archway import RegressionArchway
+from .classification_archway.vanilla_classificaton_archway import VanillaClassificationArchway as ClassificationArchway

@@ -5,9 +5,11 @@ class ClassificationEvalInfo:
     def __init__(self, *,
                  true_labels: np.ndarray,
                  predicted_labels: np.ndarray,
+                 n_classes: int | None = None,
                  ) -> None:
         self.true_labels: np.ndarray = true_labels
         self.predicted_labels: np.ndarray = predicted_labels
+        self.n_classes: int | None = n_classes
 
         self.confusion_matrix: np.ndarray = self._compute_confusion_matrix()
         self.tp: np.ndarray = np.diag(self.confusion_matrix)
@@ -22,7 +24,8 @@ class ClassificationEvalInfo:
         self.f1: np.ndarray = 2 * (self.precision * self.sensitivity) / (self.precision + self.sensitivity)
 
     def _compute_confusion_matrix(self) -> np.ndarray:
-        classes: int = len(np.unique(self.true_labels))
+        classes: int = len(np.unique(self.true_labels)) if self.n_classes is None else self.n_classes
+
         matrix: np.ndarray = np.zeros((classes, classes), dtype=int)
 
         for true, pred in zip(self.true_labels, self.predicted_labels):

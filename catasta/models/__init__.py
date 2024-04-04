@@ -7,8 +7,8 @@ from .regressors.rbf_regressor import RBFRegressor
 from .regressors.mamba_regressor import MambaRegressor
 from .regressors.mamba_fft_regressor import MambaFFTRegressor
 
-# image classifiers
-from .image_classifiers.feedforward_image_classifier import FeedforwardImageClassifier
-from .image_classifiers.transformer_image_classifier import TransformerImageClassifier
-from .image_classifiers.mamba_image_classifier import MambaImageClassifier
-from .image_classifiers.cnn_image_classifier import CNNImageClassifier
+# classifiers
+from .classifiers.feedforward_classifier import FeedforwardClassifier
+from .classifiers.transformer_classifier import TransformerClassifier
+from .classifiers.mamba_classifier import MambaClassifier
+from .classifiers.cnn_classifier import CNNClassifier

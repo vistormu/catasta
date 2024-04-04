@@ -93,7 +93,7 @@ class ImageClassificationSubset(Dataset):
         return torch.tensor(sample_array), label
 
 
-class ImageClassificationDataset:
+class ClassificationDataset:
     def __init__(self, *,
                  root: str,
                  input_transformations: list[Transformation] = [],

@@ -1,2 +1,2 @@
 from .regression_dataset import RegressionDataset
-from .image_classification_dataset import ImageClassificationDataset
+from .classification_dataset import ClassificationDataset
