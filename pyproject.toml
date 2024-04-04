@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "catasta"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Vistor" },
 ]
@@ -25,6 +25,8 @@ dependencies = [
     "vclog",
     "scipy",
     "pillow",
+    "onnx",
+    "onnxruntime",
 ]
 
 [tool.hatch.build.targets.wheel]
