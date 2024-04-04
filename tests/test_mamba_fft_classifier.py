@@ -1,6 +1,6 @@
 import numpy as np
 
-from catasta.models import MambaClassifier
+from catasta.models import MambaFFTClassifier
 from catasta.datasets import ClassificationDataset
 from catasta.scaffolds import ImageClassificationScaffold
 from catasta.dataclasses import ClassificationTrainInfo, ClassificationEvalInfo
@@ -12,7 +12,7 @@ from vclog import Logger
 def main() -> None:
     logger: Logger = Logger("catasta")
 
-    model = MambaClassifier(
+    model = MambaFFTClassifier(
         input_shape=(28, 28, 1),
         n_classes=10,
         n_patches=4,

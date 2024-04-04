@@ -1,6 +1,6 @@
 import numpy as np
 
-from catasta.models import MambaClassifier
+from catasta.models import TransformerFFTClassifier
 from catasta.datasets import ClassificationDataset
 from catasta.scaffolds import ImageClassificationScaffold
 from catasta.dataclasses import ClassificationTrainInfo, ClassificationEvalInfo
@@ -12,16 +12,17 @@ from vclog import Logger
 def main() -> None:
     logger: Logger = Logger("catasta")
 
-    model = MambaClassifier(
+    model = TransformerFFTClassifier(
         input_shape=(28, 28, 1),
         n_classes=10,
         n_patches=4,
-        d_model=8,
-        d_conv=4,
-        d_state=8,
+        d_model=64,
         n_layers=2,
-        expand=2,
-        layer_norm=False,
+        n_heads=2,
+        feedforward_dim=16,
+        head_dim=4,
+        dropout=0.5,
+        layer_norm=True,
     )
 
     def remove_channel(input: np.ndarray) -> np.ndarray:
