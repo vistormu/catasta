@@ -116,7 +116,7 @@ def vanilla_onnx() -> None:
 
 
 def gp() -> None:
-    path: str = "tests/models/"
+    path: str = "tests/models/gp/"
 
     n_dim: int = 768
     model = ApproximateGPRegressor(
@@ -167,9 +167,9 @@ def gp() -> None:
 
 
 if __name__ == "__main__":
-    print("vanilla")
-    vanilla()
-    print("vanilla_onnx")
-    vanilla_onnx()
-    print("gp")
+    # print("vanilla")
+    # vanilla()
+    # print("vanilla_onnx")
+    # vanilla_onnx()
+    # print("gp")
     gp()
