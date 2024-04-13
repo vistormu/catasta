@@ -1,32 +1,74 @@
 # Catasta: Streamlined Model Experimentation
 
-<p align="center">
-    <img style="width: 40%" src="assets/catasta.svg">
-</p>
-
+<div align="center">
+<img style="width: 30%" src="assets/catasta.svg">
+    
 [![pypi version](https://img.shields.io/pypi/v/catasta?logo=pypi)](https://pypi.org/project/catasta/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](http://choosealicense.com/licenses/mit/)
 <!-- [![docs](https://badgen.net/badge/readthedocs/documentation/blue)](https://catasta.readthedocs.io/en/latest/) -->
+</div>
 
-Catasta is a Python library designed to simplify and accelerate the process of machine learning model experimentation. It encapsulates the complexities of model training and evaluation, offering researchers and developers a straightforward pipeline for rapid model assessment with minimal setup required.
+_Catasta_ is a Python library designed to simplify the process of Machine Learning model experimentation. It encapsulates the complexities of model training, evaluation, and inference in a very simple API.
 
-> Note: Catasta only supports regression and classification at the moment.
+> [!WARNING]
+> :construction: _Catasta_ is in early development :construction:
+> 
+> Expect breaking changes on every release until `v1.0.0` is reached.
+> 
+> Also, The documentation and examples for the library are under development.
 
-> Important: Catasta is subject of change until a major version is launched.
+---
 
-## Key features
+_Catasta_ is a very simple and easy to use package.
 
-Catasta is a very simple package, containing only five modules, each one with an specific purpose. 
+### The `models` module
 
-The `models` module houses a variety of machine learning models.
+_Catasta_ offers a variety of pre-implemente Machine Learning models. All models are **single-scripted**, so feel free to copy and paste them anywhere.
 
-The `datasets` module provides an easy way to import the data contained in directories, being also able to modify the data shape in an easy way.
+For regression:
 
-The `transformations` module lets you apply transformations to the data when its loaded to a dataset.
+- Approximate Gaussian Process
+- Transformer
+- Transformer with FFT
+- Mamba
+- Mamba with FFT
+- FeedForward Neural Network
 
-The `scaffolds` module is where models and datasets are integrated for training. Scaffolds handle training and evaluation. 
+For classification:
 
-The `archways` module takes a trained model and handles the inference task.
+- Convolutional Neural Network
+- Transformer
+- Transformer with FFT
+- Mamba
+- Mamba with FFT
+- FeedForward Neural Network
+
+### The `datasets` module 
+
+Provides an easy way to import the data contained in directories.
+
+### The `transformations` module 
+
+Let's you apply transformations to the data when its loaded to a dataset, such as window sliding, normalization...
+
+### The `scaffolds` module 
+
+Scaffolds are where models and datasets are integrated for training, handling both training and evaluation. 
+
+_Catasta_ supports and plans to support the following Machine Learning tasks:
+
+- [x] SISO Regression
+- [x] MISO Regression
+- [x] Image Classification
+- [ ] Signal Classification
+- [ ] Binary Classification
+- [ ] Probabilistic Regression and Classification
+
+Models can be saved to `.pt` and `.onnx` extensions.
+
+### The `archways` module 
+
+Takes a trained model and handles the inference task via Pytorch or onnxruntime.
 
 ## Installation
 
@@ -51,7 +93,3 @@ and install the dependencies
 ```sh
 pip install -r requirements.txt
 ```
-
-## Documentation
-
-Work in progress
