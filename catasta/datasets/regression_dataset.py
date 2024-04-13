@@ -102,4 +102,4 @@ class RegressionDataset(Dataset):
         return self.inputs.shape[0]
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        return torch.tensor(self.inputs[index]), torch.tensor(self.outputs[index]).squeeze()
+        return torch.tensor(self.inputs[index]).view(-1), torch.tensor(self.outputs[index]).squeeze()
