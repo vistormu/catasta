@@ -68,10 +68,7 @@ class GaussianRegressionArchway(RegressionArchway):
     @torch.no_grad()
     def predict(self, input: np.ndarray | Tensor) -> RegressionPrediction:
         input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
-        input_tensor = input_tensor.to(self.device, dtype=self.dtype)
-
-        if input_tensor.ndim == 1:
-            input_tensor = input_tensor.unsqueeze(0)
+        input_tensor = input_tensor.to(self.device, dtype=self.dtype).view(-1)
 
         output: Distribution = self.likelihood(self.model(input_tensor))
 
