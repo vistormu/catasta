@@ -10,7 +10,6 @@ from torch.nn import Module
 from torch.utils.data import DataLoader
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import StepLR
-from torch.nn.modules.loss import _Loss
 
 from vclog import Logger
 
@@ -24,7 +23,7 @@ class VanillaClassificationScaffold:
                  model: Module,
                  dataset: ClassificationDataset,
                  optimizer: str = "adam",
-                 loss_function: str = "mse",
+                 loss_function: str | Module = "cross_entropy",
                  ) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
@@ -35,7 +34,7 @@ class VanillaClassificationScaffold:
         self.dataset: ClassificationDataset = dataset
 
         self.optimmizer_id: str = optimizer
-        self.loss_function_id: str = loss_function
+        self.loss_function_id: str | Module = loss_function
 
         self.logger: Logger = Logger("catasta")
 
@@ -58,7 +57,7 @@ class VanillaClassificationScaffold:
             self.logger.warning("no validation split found")
 
         optimizer: Optimizer = get_optimizer(self.optimmizer_id, self.model, lr)
-        loss_function: _Loss = get_loss_function(self.loss_function_id)
+        loss_function: Module = get_loss_function(self.loss_function_id)
 
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
@@ -94,7 +93,7 @@ class VanillaClassificationScaffold:
             # END OF EPOCH
             scheduler.step()
 
-            val_loss, val_accuracy = self._estimate_loss(batch_size)
+            val_loss, val_accuracy = self._estimate_loss(loss_function, batch_size)
 
             model_state_manager(self.model.state_dict(), val_loss)
 
@@ -155,15 +154,11 @@ class VanillaClassificationScaffold:
         )
 
     @torch.no_grad()
-    def _estimate_loss(self, batch_size: int) -> tuple[float, float]:
+    def _estimate_loss(self, loss_function: Module, batch_size: int) -> tuple[float, float]:
         if self.dataset.validation is None:
             return np.inf, -np.inf
 
         self.model.eval()
-
-        loss_function: _Loss | None = get_loss_function(self.loss_function_id)
-        if loss_function is None:
-            raise ValueError(f"invalid loss function id: {self.loss_function_id}")
 
         data_loader: DataLoader = DataLoader(self.dataset.validation, batch_size=batch_size, shuffle=False)
 
