@@ -10,10 +10,9 @@ from torch.utils.data import DataLoader
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import StepLR
 from torch.distributions import Distribution
-import torch.onnx as onnx
+# import torch.onnx as onnx
 
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.mlls import MarginalLogLikelihood
 from gpytorch.distributions import MultivariateNormal
 
 from vclog import Logger
@@ -29,7 +28,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
                  model: Module,
                  dataset: RegressionDataset,
                  optimizer: str = "adam",
-                 loss_function: str = "variational_elbo",
+                 loss_function: str | Module = "variational_elbo",
                  ) -> None:
         self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype: torch.dtype = torch.float32
@@ -41,7 +40,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
         self.dataset: RegressionDataset = dataset
 
         self.optimizer_id: str = optimizer
-        self.loss_function_id: str = loss_function
+        self.loss_function_id: str | Module = loss_function
 
         self.logger: Logger = Logger("catasta")
 
@@ -62,7 +61,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
         self.likelihood.train()
 
         optimizer: Optimizer = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
-        mll: MarginalLogLikelihood = get_objective_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))
+        objective_function: Module = get_objective_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))
 
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr is not None else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
@@ -88,7 +87,7 @@ class GaussianRegressionScaffold(RegressionScaffold):
 
                 output: MultivariateNormal = self.model(x_batch)
 
-                loss: Tensor = -mll(output, y_batch)  # type: ignore
+                loss: Tensor = -objective_function(output, y_batch)
                 loss.backward()
 
                 optimizer.step()

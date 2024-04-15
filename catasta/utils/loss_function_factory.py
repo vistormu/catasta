@@ -1,3 +1,4 @@
+from torch.nn import Module
 from torch.nn.modules.loss import _Loss
 from torch.nn import (
     MSELoss,
@@ -34,7 +35,10 @@ loss_functions: dict[str, _Loss] = {
 }
 
 
-def get_loss_function(id: str) -> _Loss:
+def get_loss_function(id: str | Module) -> Module:
+    if not isinstance(id, str):
+        return id
+
     loss_function: _Loss | None = loss_functions.get(id.lower(), None)
     if loss_function is None:
         raise ValueError(f"Loss function {id} not found")

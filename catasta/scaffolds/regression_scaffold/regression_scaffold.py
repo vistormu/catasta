@@ -11,7 +11,7 @@ def RegressionScaffold(*,
                        model: Module,
                        dataset: RegressionDataset,
                        optimizer: str,
-                       loss_function: str,
+                       loss_function: str | Module,
                        ) -> IRegressionScaffold:
     '''
     Create a scaffold for regression tasks.
