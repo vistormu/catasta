@@ -90,7 +90,9 @@ class VanillaRegressionArchway(RegressionArchway):
         else:
             output: np.ndarray = self._pytorch_predict(input)
 
-        return RegressionPrediction(output)
+        std: np.ndarray = np.zeros_like(output)
+
+        return RegressionPrediction(output, std)
 
     @torch.no_grad()
     def _pytorch_predict(self, input: np.ndarray | Tensor) -> np.ndarray:

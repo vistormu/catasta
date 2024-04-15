@@ -4,4 +4,4 @@ import numpy as np
 
 class RegressionPrediction(NamedTuple):
     value: np.ndarray
-    std: np.ndarray | None = None
+    std: np.ndarray
