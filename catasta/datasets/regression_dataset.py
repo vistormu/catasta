@@ -4,12 +4,13 @@ import numpy as np
 
 import torch
 from torch import Tensor
-from torch.utils.data import Dataset, Subset
+from torch.utils.data import Subset
 
 from ..transformations import Transformation
+from .catasta_dataset import CatastaDataset
 
 
-class RegressionDataset(Dataset):
+class RegressionDataset(CatastaDataset):
     def __init__(self, *,
                  root: str,
                  input_transformations: list[Transformation] = [],

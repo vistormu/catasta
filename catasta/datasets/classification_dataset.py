@@ -9,6 +9,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from ..transformations import Transformation
+from .catasta_dataset import CatastaDataset
 
 
 def scan_classes(dir: str) -> list[str]:
@@ -93,7 +94,7 @@ class ImageClassificationSubset(Dataset):
         return torch.tensor(sample_array), label
 
 
-class ClassificationDataset:
+class ClassificationDataset(CatastaDataset):
     def __init__(self, *,
                  root: str,
                  input_transformations: list[Transformation] = [],
