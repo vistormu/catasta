@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 
 from catasta.models import ApproximateGPRegressor
 from catasta.datasets import RegressionDataset
-from catasta.scaffolds import RegressionScaffold
+from catasta.scaffolds import Scaffold
 from catasta.archways import RegressionArchway
-from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo, RegressionPrediction
+from catasta.dataclasses import RegressionPrediction, TrainInfo
 
 
 def main() -> None:
@@ -25,21 +25,21 @@ def main() -> None:
     )
 
     # Training
-    scaffold = RegressionScaffold(
+    scaffold = Scaffold(
         model=model,
         dataset=dataset,
         optimizer="adamw",
         loss_function="variational_elbo",
     )
 
-    train_info: RegressionTrainInfo = scaffold.train(
+    train_info: TrainInfo = scaffold.train(
         epochs=500,
         batch_size=128,
         lr=1e-3,
     )
     print(f"min train loss: {train_info.best_train_loss:.4f}")
 
-    info: RegressionEvalInfo = scaffold.evaluate()
+    info = scaffold.evaluate()
     print(info)
 
     # save model
