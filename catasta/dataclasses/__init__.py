@@ -4,3 +4,4 @@ from .regression_train_info import RegressionTrainInfo
 from .classification_train_info import ClassificationTrainInfo
 from .classification_eval_info import ClassificationEvalInfo
 from .classification_prediction import ClassificationPrediction
+from .train_info import TrainInfo
