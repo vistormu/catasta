@@ -15,11 +15,7 @@ from torch.distributions import Distribution
 from gpytorch.models.gp import GP
 from gpytorch.likelihoods import GaussianLikelihood
 
-from ..datasets import (
-    CatastaDataset,
-    RegressionDataset,
-    ClassificationDataset,
-)
+from ..datasets import CatastaDataset
 from .utils import (
     get_optimizer,
     get_loss_function,
@@ -33,16 +29,6 @@ from ..dataclasses import (
 )
 
 from vclog import Logger
-
-
-def _get_task(dataset: CatastaDataset) -> str:
-    match dataset:
-        case ClassificationDataset():
-            return "classification"
-        case RegressionDataset():
-            return "regression"
-        case _:
-            raise ValueError("unknown dataset type")
 
 
 def _get_device(device: str) -> torch.device:
@@ -114,8 +100,10 @@ class Scaffold:
         if self.dataset.test is None and self.dataset.validation is not None:
             self.logger.warning("no test split found, using validation split for evaluation")
             dataset = self.dataset.validation
-        else:
+        elif self.dataset.test is not None:
             dataset = self.dataset.test
+        else:
+            raise ValueError("no test or validation split found")
 
         self.model.eval()
         self.likelihood.eval()
@@ -153,7 +141,7 @@ class Scaffold:
               device: str,
               dtype: str,
               ) -> None:
-        self.task: str = _get_task(dataset)
+        self.task: str = dataset.task
 
         self.device: torch.device = _get_device(device)
         self.dtype: torch.dtype = _get_dtype(dtype)
@@ -317,13 +305,13 @@ def _train_epoch(task: str,
 
     data_loader: DataLoader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
-    return _epoch(task, models, data_loader, optimizer, loss_function, device, dtype, dtype)
+    return _epoch(task, models, data_loader, optimizer, loss_function, device, dtype)
 
 
 @torch.no_grad()
 def _val_epoch(task: str,
                models: list[Module],
-               dataset: Dataset,
+               dataset: Dataset | None,
                batch_size: int,
                loss_function: Module,
                device: torch.device,
@@ -337,7 +325,7 @@ def _val_epoch(task: str,
 
     data_loader: DataLoader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
-    return _epoch(task, models, data_loader, None, loss_function, device, dtype, dtype)
+    return _epoch(task, models, data_loader, None, loss_function, device, dtype)
 
 
 def _epoch(task: str,
@@ -346,15 +334,14 @@ def _epoch(task: str,
            optimizer: Optimizer | None,
            loss_function: Module,
            device: torch.device,
-           input_dtype: torch.dtype,
-           target_dtype: torch.dtype,
+           dtype: torch.dtype,
            ) -> tuple[float, float | None]:
     cumulated_loss: float = 0.0
     total_samples: int = 0
     correct_predictions: int = 0
     for inputs, targets in data_loader:
-        inputs: Tensor = inputs.to(device, input_dtype)
-        targets: Tensor = targets.to(device, target_dtype)
+        inputs: Tensor = inputs.to(device, dtype)
+        targets: Tensor = targets.to(device, dtype if task == "regression" else torch.long)
 
         optimizer.zero_grad() if optimizer is not None else None
 
