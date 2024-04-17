@@ -1,6 +1,5 @@
 import platform
 import os
-from typing import Literal
 
 import numpy as np
 
@@ -42,6 +41,9 @@ def _get_dtype(dtype: str) -> torch.dtype:
 
 
 class Archway:
+    """A class for inference with a trained model.
+    """
+
     def __init__(self, *,
                  model: Module,
                  path: str | None = None,
@@ -50,6 +52,28 @@ class Archway:
                  dtype: str = "float32",
                  verbose: bool = True,
                  ) -> None:
+        """Initialize the Archway object.
+
+        Arguments
+        ---------
+        model : Module
+            The model to perform inference with.
+        path : str, optional
+            The path to the directory containing the saved model. If None, the model is assumed to be loaded in memory.
+        likelihood : str or Module, optional
+            The likelihood function to use for the model. If None, the default likelihood for the model is used.
+        device : str, optional
+            The device to perform inference on. Can be "cpu", "cuda", or "auto".
+        dtype : str, optional
+            The data type to use for inference. Can be "float16", "float32", or "float64".
+        verbose : bool, optional
+            Whether to log information about the inference process.
+
+        Raises
+        ------
+        ValueError
+            If the load path is a file path.
+        """
         self.path: str | None = path
 
         self.device: torch.device = _get_device(device)
@@ -68,6 +92,18 @@ class Archway:
 
     @torch.no_grad()
     def predict(self, input: np.ndarray | Tensor) -> PredictionInfo:
+        """Perform inference with the model.
+
+        Arguments
+        ---------
+        input : np.ndarray or Tensor
+            The input data to make predictions on.
+
+        Returns
+        -------
+        ~catasta.dataclasses.PredictionInfo
+            The predicted values and standard deviations.
+        """
         input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
         input_tensor = input_tensor.to(self.device, self.dtype)
 

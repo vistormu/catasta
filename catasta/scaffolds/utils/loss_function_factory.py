@@ -24,6 +24,26 @@ from gpytorch.mlls import (
     GammaRobustVariationalELBO,
 )
 
+available_loss_functions = sorted([
+    "mse",
+    "l1",
+    "smooth_l1",
+    "huber",
+    "poisson",
+    "kl_div",
+    "cross_entropy",
+    "nll",
+    "bce",
+    "bce_with_logits",
+    "margin_ranking",
+    "hinge_embedding",
+    "multi_label_margin",
+    "multi_label_soft_margin",
+    "variational_elbo",
+    "predictive_log",
+    "variational_marginal_log",
+    "gamma_robust_variational_elbo",
+])
 
 loss_functions: dict[str, _Loss] = {
     "mse": MSELoss(),

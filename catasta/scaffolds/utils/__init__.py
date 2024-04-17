@@ -1,5 +1,5 @@
 from .optimizer_factory import get_optimizer
-from .loss_function_factory import get_loss_function
+from .loss_function_factory import get_loss_function, available_loss_functions
 from .objective_function_factory import get_objective_function
 from .training_logger import TrainingLogger
 from .model_state_manager import ModelStateManager

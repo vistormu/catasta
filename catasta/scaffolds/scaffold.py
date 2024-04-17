@@ -75,70 +75,21 @@ class Scaffold:
             The model to be trained.
         dataset : ~catasta.datasets.CatastaDataset
             The dataset to be used for training, validation, and testing.
+        optimizer : str | torch.optim.Optimizer
+            The optimizer to be used for training. The user can either pass a string with the name of the optimizer or a custom optimizer. One of: adam, sgd, adamw, lbfgs, rmsprop, rprop, adadelta, adagrad, adamax, asgd, sparseadam.
+        loss_function : str | torch.nn.Module
+            The loss function to be used for training. The user can either pass a string with the name of the loss function or a custom loss function. A list of available loss functions is in ~catasta.scaffolds.utils.available_loss_functions
+        probabilistic : bool, optional
+            Wheter to use probabilistic training or not. Defaults to False. Not yet supported.
+        likelihood : str | torch.nn.Module, optional
+            The likelihood to be used for Gaussian Processes. If the user is training a GP model and the likelihood is not provided, the default Gaussian likelihood is used. One of: gaussian, bernoulli, laplace, softmax, studentt, beta. 
+        device : str, optional
+            The device to be used for training. One of "cpu", "cuda", or "auto". Defaults to "auto".
+        dtype : str, optional
+            The data type to be used for training. One of "float16", "float32", or "float64". Defaults to "float32".
+        verbose : bool, optional
+            Whether to print training information or not. Defaults to True.
         """
-        self._init(model, dataset, optimizer, loss_function, probabilistic, likelihood, device, dtype, verbose)
-
-    def train(self, *,
-              epochs: int,
-              batch_size: int,
-              lr: float,
-              final_lr: float | None = None,
-              early_stopping: tuple[int, float] | None = None,
-              shuffle: bool = True,
-              ) -> TrainInfo:
-        """Train the model on the dataset.
-
-        Arguments
-        ---------
-        epochs : int
-            The number of epochs to train the model.
-        """
-        return self._train(epochs, batch_size, lr, final_lr, early_stopping, shuffle)
-
-    def evaluate(self) -> RegressionEvalInfo | ClassificationEvalInfo:
-        """Evaluate the model on the test set of the dataset.
-        """
-        self.model.eval()
-        self.likelihood.eval()
-
-        if self.task == "regression":
-            return self._evaluate_regression(self.dataset.test)
-        else:
-            return self._evaluate_classification(self.dataset.test)
-
-    def save(self,
-             path: str,
-             dtype: str = "float32",
-             ) -> None:
-        """Save the model to a file.
-
-        Arguments
-        ---------
-        """
-        self._save(path, dtype)
-
-    def _log_training_info(self) -> None:
-        n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
-        n_samples: int = len(self.dataset.train)  # type: ignore
-        self.logger.info(f"""training
-    -> task: {self.task}
-    -> dataset: {self.dataset.root} ({n_samples} samples)
-    -> model: {self.model.__class__.__name__} ({n_params} trainable parameters)
-    -> device: {self.device} ({device_name})
-        """)
-
-    def _init(self,
-              model: Module,
-              dataset: CatastaDataset,
-              optimizer: str,
-              loss_function: str | Module,
-              probabilistic: bool,
-              likelihood: str | Module | None,
-              device: str,
-              dtype: str,
-              verbose: bool,
-              ) -> None:
         self.task: str = dataset.task
 
         self.device: torch.device = _get_device(device)
@@ -161,14 +112,31 @@ class Scaffold:
         if probabilistic:
             self.logger.warning("probabilistic models are not yet supported")
 
-    def _train(self,
-               epochs: int,
-               batch_size: int,
-               lr: float,
-               final_lr: float | None,
-               early_stopping: tuple[int, float] | None,
-               shuffle: bool,
-               ) -> TrainInfo:
+    def train(self, *,
+              epochs: int,
+              batch_size: int,
+              lr: float,
+              final_lr: float | None = None,
+              early_stopping: tuple[int, float] | None = None,
+              shuffle: bool = True,
+              ) -> TrainInfo:
+        """Train the model on the dataset.
+
+        Arguments
+        ---------
+        epochs : int
+            The number of epochs to train the model.
+        batch_size : int
+            The batch size to use for training.
+        lr : float
+            The initial learning rate.
+        final_lr : float, optional
+            The final learning rate. If not provided, the learning rate is not decayed. Defaults to None.
+        early_stopping : tuple[int, float], optional
+            The early stopping criteria (patience, delta). If not provided, early stopping is not used. Defaults to None.
+        shuffle : bool, optional
+            Whether to shuffle the training data or not. Defaults to True.
+        """
         # VARIABLES
         optimizer: Optimizer = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
         loss_function: Module = get_loss_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))  # type: ignore
@@ -230,6 +198,73 @@ class Scaffold:
 
         return train_info
 
+    def evaluate(self) -> RegressionEvalInfo | ClassificationEvalInfo:
+        """Evaluate the model on the test set of the dataset.
+
+        Returns
+        -------
+        ~catasta.dataclasses.RegressionEvalInfo | ~catasta.dataclasses.ClassificationEvalInfo
+            The evaluation information. If the task is regression, a `RegressionEvalInfo` object is returned. If the task is classification, a `ClassificationEvalInfo` object is returned.
+        """
+        self.model.eval()
+        self.likelihood.eval()
+
+        if self.task == "regression":
+            return self._evaluate_regression(self.dataset.test)
+        else:
+            return self._evaluate_classification(self.dataset.test)
+
+    def save(self,
+             path: str,
+             dtype: str = "float32",
+             ) -> None:
+        """Save the model to a file.
+
+        Arguments
+        ---------
+        path : str
+            The directory to save the model to.
+        dtype : str, optional
+            The data type to save the model in. Can be "float16", "float32", or "float64". Defaults to "float32".
+
+        Raises
+        ------
+        ValueError
+            If the path is a file path.
+        """
+        if "." in path:
+            raise ValueError("save path must be a directory")
+
+        model_dtype: torch.dtype = _get_dtype(dtype)
+        model_device: torch.device = torch.device("cpu")
+
+        save_path: str = os.path.join(path, self.model.__class__.__name__)
+
+        os.makedirs(save_path, exist_ok=True)
+
+        self.model.to(model_device, model_dtype)
+        self.likelihood.to(model_device, model_dtype)
+
+        for model in [self.model, self.likelihood]:
+            if isinstance(model, Identity):
+                continue
+
+            model_path: str = os.path.join(save_path, f"{model.__class__.__name__}.pt")
+            torch.save(model.state_dict(), model_path)
+
+            self.logger.info(f"model saved to {model_path}")
+
+    def _log_training_info(self) -> None:
+        n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
+        n_samples: int = len(self.dataset.train)  # type: ignore
+        self.logger.info(f"""training
+    -> task: {self.task}
+    -> dataset: {self.dataset.root} ({n_samples} samples)
+    -> model: {self.model.__class__.__name__} ({n_params} trainable parameters)
+    -> device: {self.device} ({device_name})
+        """)
+
     @torch.no_grad()
     def _evaluate_regression(self, dataset: Dataset) -> RegressionEvalInfo:
         x, y = next(iter(DataLoader(dataset, batch_size=len(dataset), shuffle=False)))  # type: ignore
@@ -270,29 +305,6 @@ class Scaffold:
             true_labels=np.concatenate(true_labels),
             predicted_labels=np.concatenate(predicted_labels),
         )
-
-    def _save(self, path: str, dtype: str) -> None:
-        if "." in path:
-            raise ValueError("save path must be a directory")
-
-        model_dtype: torch.dtype = _get_dtype(dtype)
-        model_device: torch.device = torch.device("cpu")
-
-        save_path: str = os.path.join(path, self.model.__class__.__name__)
-
-        os.makedirs(save_path, exist_ok=True)
-
-        self.model.to(model_device, model_dtype)
-        self.likelihood.to(model_device, model_dtype)
-
-        for model in [self.model, self.likelihood]:
-            if isinstance(model, Identity):
-                continue
-
-            model_path: str = os.path.join(save_path, f"{model.__class__.__name__}.pt")
-            torch.save(model.state_dict(), model_path)
-
-            self.logger.info(f"model saved to {model_path}")
 
 
 def _epoch(task: str,

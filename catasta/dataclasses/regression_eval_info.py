@@ -2,11 +2,54 @@ import numpy as np
 
 
 class RegressionEvalInfo:
-    def __init__(self, true_input: np.ndarray, true_output: np.ndarray, predicted_output: np.ndarray, predicted_std: np.ndarray | None = None) -> None:
+    """A class for evaluating regression models.
+
+    Attributes
+    ----------
+    true_input : np.ndarray
+        The true input of the data.
+    true_output : np.ndarray
+        The true output of the data.
+    predicted_output : np.ndarray
+        The predicted output of the data.
+    predicted_std : np.ndarray
+        The predicted standard deviation of the data.
+    mae : float
+        The mean absolute error of the data.
+    mse : float
+        The mean squared error of the data.
+    rmse : float
+        The root mean squared error of the data.
+    r2 : float
+        The R2 score of the data.
+    mape : float
+        The mean absolute percentage error of the data.
+    smape : float
+        The symmetric mean absolute percentage error of the data.
+    mase : float
+        The mean absolute scaled error of the data.
+    masep : float
+        The mean absolute scaled error percentage of the data.
+    """
+
+    def __init__(self, true_input: np.ndarray, true_output: np.ndarray, predicted_output: np.ndarray, predicted_std: np.ndarray) -> None:
+        """Initialize the RegressionEvalInfo object. 
+
+        Arguments
+        ---------
+        true_input : np.ndarray
+            The true input of the data.
+        true_output : np.ndarray
+            The true output of the data.
+        predicted_output : np.ndarray
+            The predicted output of the data.
+        predicted_std : np.ndarray
+            The predicted standard deviation of the data.
+        """
         self.true_input: np.ndarray = true_input
         self.predicted_output: np.ndarray = predicted_output
         self.true_output: np.ndarray = true_output
-        self.predicted_std: np.ndarray | None = predicted_std
+        self.predicted_std: np.ndarray = predicted_std
 
         self.mae: float = np.mean(np.abs(predicted_output - true_output)).astype(float)
         self.mse: float = np.mean((predicted_output - true_output)**2).astype(float)
