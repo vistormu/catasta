@@ -65,6 +65,7 @@ class Scaffold:
                  likelihood: str | Module | None = None,
                  device: str = "auto",
                  dtype: str = "float32",
+                 verbose: bool = True,
                  ) -> None:
         """The `Scaffold` class is a high-level API for training models on Catasta datasets.
 
@@ -75,7 +76,7 @@ class Scaffold:
         dataset : ~catasta.datasets.CatastaDataset
             The dataset to be used for training, validation, and testing.
         """
-        self._init(model, dataset, optimizer, loss_function, probabilistic, likelihood, device, dtype)
+        self._init(model, dataset, optimizer, loss_function, probabilistic, likelihood, device, dtype, verbose)
 
     def train(self, *,
               epochs: int,
@@ -136,6 +137,7 @@ class Scaffold:
               likelihood: str | Module | None,
               device: str,
               dtype: str,
+              verbose: bool,
               ) -> None:
         self.task: str = dataset.task
 
@@ -153,8 +155,11 @@ class Scaffold:
         self.optimizer_id: str = optimizer
         self.loss_function_id: str | Module = loss_function
 
-        self.logger: Logger = Logger("catasta")
+        self.logger: Logger = Logger("catasta", disable=not verbose)
         self._log_training_info()
+
+        if probabilistic:
+            self.logger.warning("probabilistic models are not yet supported")
 
     def _train(self,
                epochs: int,
@@ -270,11 +275,12 @@ class Scaffold:
         if "." in path:
             raise ValueError("save path must be a directory")
 
-        if not os.path.exists(path):
-            os.makedirs(path)
-
         model_dtype: torch.dtype = _get_dtype(dtype)
         model_device: torch.device = torch.device("cpu")
+
+        save_path: str = os.path.join(path, self.model.__class__.__name__)
+
+        os.makedirs(save_path, exist_ok=True)
 
         self.model.to(model_device, model_dtype)
         self.likelihood.to(model_device, model_dtype)
@@ -283,9 +289,10 @@ class Scaffold:
             if isinstance(model, Identity):
                 continue
 
-            model_name: str = model.__class__.__name__
-            model_path: str = os.path.join(path, f"{model_name}.pt")
+            model_path: str = os.path.join(save_path, f"{model.__class__.__name__}.pt")
             torch.save(model.state_dict(), model_path)
+
+            self.logger.info(f"model saved to {model_path}")
 
 
 def _epoch(task: str,
