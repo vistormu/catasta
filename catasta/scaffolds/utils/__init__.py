@@ -3,3 +3,4 @@ from .loss_function_factory import get_loss_function
 from .objective_function_factory import get_objective_function
 from .training_logger import TrainingLogger
 from .model_state_manager import ModelStateManager
+from .likelihood_factory import get_likelihood

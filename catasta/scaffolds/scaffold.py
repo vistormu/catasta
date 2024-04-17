@@ -13,12 +13,12 @@ from torch.utils.data import DataLoader, Dataset
 from torch.distributions import Distribution
 
 from gpytorch.models.gp import GP
-from gpytorch.likelihoods import GaussianLikelihood
 
 from ..datasets import CatastaDataset
 from .utils import (
     get_optimizer,
     get_loss_function,
+    get_likelihood,
     ModelStateManager,
     TrainingLogger,
 )
@@ -62,6 +62,7 @@ class Scaffold:
                  optimizer: str,
                  loss_function: str | Module,
                  probabilistic: bool = False,
+                 likelihood: str | Module | None = None,
                  device: str = "auto",
                  dtype: str = "float32",
                  ) -> None:
@@ -72,9 +73,9 @@ class Scaffold:
         model : torch.nn.Module
             The model to be trained.
         dataset : ~catasta.datasets.CatastaDataset
-            The dataset to be used for training.
+            The dataset to be used for training, validation, and testing.
         """
-        self._init(model, dataset, optimizer, loss_function, probabilistic, device, dtype)
+        self._init(model, dataset, optimizer, loss_function, probabilistic, likelihood, device, dtype)
 
     def train(self, *,
               epochs: int,
@@ -97,21 +98,13 @@ class Scaffold:
     def evaluate(self) -> RegressionEvalInfo | ClassificationEvalInfo:
         """Evaluate the model on the test set of the dataset.
         """
-        if self.dataset.test is None and self.dataset.validation is not None:
-            self.logger.warning("no test split found, using validation split for evaluation")
-            dataset = self.dataset.validation
-        elif self.dataset.test is not None:
-            dataset = self.dataset.test
-        else:
-            raise ValueError("no test or validation split found")
-
         self.model.eval()
         self.likelihood.eval()
 
         if self.task == "regression":
-            return self._evaluate_regression(dataset)
+            return self._evaluate_regression(self.dataset.test)
         else:
-            return self._evaluate_classification(dataset)
+            return self._evaluate_classification(self.dataset.test)
 
     def save(self,
              path: str,
@@ -138,6 +131,7 @@ class Scaffold:
               optimizer: str,
               loss_function: str | Module,
               probabilistic: bool,
+              likelihood: str | Module | None,
               device: str,
               dtype: str,
               ) -> None:
@@ -147,7 +141,10 @@ class Scaffold:
         self.dtype: torch.dtype = _get_dtype(dtype)
 
         self.model: Module = model.to(self.device, self.dtype)
-        self.likelihood: Module = GaussianLikelihood().to(self.device, self.dtype) if isinstance(self.model, GP) else Identity()
+        if isinstance(self.model, GP) and likelihood is None:
+            self.likelihood: Module = get_likelihood("gaussian").to(self.device, self.dtype)
+        else:
+            self.likelihood: Module = get_likelihood(likelihood).to(self.device, self.dtype)
 
         self.dataset: CatastaDataset = dataset
 
@@ -311,15 +308,12 @@ def _train_epoch(task: str,
 @torch.no_grad()
 def _val_epoch(task: str,
                models: list[Module],
-               dataset: Dataset | None,
+               dataset: Dataset,
                batch_size: int,
                loss_function: Module,
                device: torch.device,
                dtype: torch.dtype,
                ) -> tuple[float, float | None]:
-    if dataset is None:
-        return float("inf"), None
-
     for model in models:
         model.eval()
 
