@@ -1,12 +1,7 @@
-import os
-
+from catasta import Scaffold, CatastaDataset
 from catasta.models import TransformerFFTRegressor
-from catasta.datasets import RegressionDataset
-from catasta.scaffolds import RegressionScaffold
-from catasta.dataclasses import RegressionEvalInfo, RegressionTrainInfo
 from catasta.transformations import (
     Normalization,
-    Decimation,
     WindowSliding,
     Slicing,
     Custom,
@@ -17,27 +12,23 @@ from vclog import Logger
 
 def main() -> None:
     n_dim: int = 768
-    dataset_root: str = "tests/data/nylon_elastic/strain/"
+    dataset_root: str = "tests/data/nylon_wire/"
     input_trasnsformations = [
-        Custom(lambda x: x[500_000:1_000_000]),
+        Custom(lambda x: x[:10_000]),
         Normalization("minmax"),
-        Decimation(decimation_factor=10),
         WindowSliding(window_size=n_dim, stride=1),
     ]
     output_trasnsformations = [
-        Custom(lambda x: x[500_000:1_000_000]),
+        Custom(lambda x: x[:10_000]),
         Normalization("minmax"),
-        Decimation(decimation_factor=10),
         Slicing(amount=n_dim - 1, end="left"),
     ]
 
-    n_files = len(os.listdir(dataset_root))
-    train_split = (n_files-1) / n_files
-    dataset = RegressionDataset(
+    dataset = CatastaDataset(
         root=dataset_root,
+        task="regression",
         input_transformations=input_trasnsformations,
         output_transformations=output_trasnsformations,
-        splits=(train_split, 1-train_split, 0.0)
     )
 
     model = TransformerFFTRegressor(
@@ -50,21 +41,21 @@ def main() -> None:
         head_dim=4,
         dropout=0.0,
     )
-    scaffold = RegressionScaffold(
+    scaffold = Scaffold(
         model=model,
         dataset=dataset,
         optimizer="adamw",
         loss_function="mse",
     )
 
-    train_info: RegressionTrainInfo = scaffold.train(
-        epochs=10,
+    scaffold.train(
+        epochs=100,
         batch_size=256,
         lr=1e-3,
         final_lr=1e-4,
         early_stopping=(10, 0.01),
     )
-    info: RegressionEvalInfo = scaffold.evaluate()
+    info = scaffold.evaluate()
 
     Logger.debug(info)
 

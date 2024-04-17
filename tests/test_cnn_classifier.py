@@ -1,14 +1,9 @@
+from catasta import Scaffold, CatastaDataset
 from catasta.models import CNNClassifier
-from catasta.datasets import ClassificationDataset
-from catasta.scaffolds.classification_scaffold.vanilla_classification_scaffold import VanillaClassificationScaffold
-from catasta.dataclasses import ClassificationTrainInfo, ClassificationEvalInfo
-
-from vclog import Logger
+from catasta.dataclasses import TrainInfo
 
 
 def main() -> None:
-    logger: Logger = Logger("catasta")
-
     model = CNNClassifier(
         input_shape=(28, 28, 3),
         n_classes=10,
@@ -24,31 +19,26 @@ def main() -> None:
         activation="relu",
     )
 
-    dataset = ClassificationDataset(
-        root="tests/data/mnist",
-        input_transformations=input_transformations,  # type: ignore
-    )
+    dataset = CatastaDataset("tests/data/mnist", task="classification")
 
-    scaffold = VanillaClassificationScaffold(
+    scaffold = Scaffold(
         model=model,
         dataset=dataset,
         optimizer="adamw",
         loss_function="cross_entropy",
     )
 
-    train_info: ClassificationTrainInfo = scaffold.train(
+    train_info: TrainInfo = scaffold.train(
         epochs=10,
         batch_size=128,
         lr=1e-3,
-        final_lr=None,
-        early_stopping=None,
     )
 
-    logger.info(train_info.best_val_accuracy)
+    print(train_info.best_val_accuracy)
 
-    eval_info: ClassificationEvalInfo = scaffold.evaluate()
+    eval_info = scaffold.evaluate()
 
-    logger.info(eval_info)
+    print(eval_info)
 
 
 if __name__ == '__main__':

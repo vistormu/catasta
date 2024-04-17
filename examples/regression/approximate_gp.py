@@ -1,11 +1,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from catasta import Scaffold, CatastaDataset
 from catasta.models import ApproximateGPRegressor
-from catasta.datasets import RegressionDataset
 from catasta.scaffolds import Scaffold
 from catasta.archways import RegressionArchway
-from catasta.dataclasses import RegressionPrediction, TrainInfo
+from catasta.dataclasses import Prediction, TrainInfo
 
 
 def main() -> None:
@@ -19,10 +19,7 @@ def main() -> None:
 
     # Dataset
     dataset_root: str = "data/incomplete/"
-    dataset = RegressionDataset(
-        root=dataset_root,
-        splits=(0.9, 0.0, 0.1),
-    )
+    dataset = CatastaDataset(dataset_root, task="regression")
 
     # Training
     scaffold = Scaffold(

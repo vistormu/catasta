@@ -94,7 +94,6 @@ class Scaffold:
         """
         return self._train(epochs, batch_size, lr, final_lr, early_stopping, shuffle)
 
-    @torch.no_grad()
     def evaluate(self) -> RegressionEvalInfo | ClassificationEvalInfo:
         """Evaluate the model on the test set of the dataset.
         """
@@ -120,7 +119,10 @@ class Scaffold:
     def _log_training_info(self) -> None:
         n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
-        self.logger.info(f"""training ({self.task})
+        n_samples: int = len(self.dataset.train)  # type: ignore
+        self.logger.info(f"""training
+    -> task: {self.task}
+    -> dataset: {self.dataset.root} ({n_samples} samples)
     -> model: {self.model.__class__.__name__} ({n_params} trainable parameters)
     -> device: {self.device} ({device_name})
         """)
@@ -170,34 +172,31 @@ class Scaffold:
         lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr else 1.0
         scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
-        training_logger: TrainingLogger = TrainingLogger(epochs)
+        training_logger: TrainingLogger = TrainingLogger(self.task, epochs)
+
+        train_data_loader: DataLoader = DataLoader(self.dataset.train, batch_size=batch_size, shuffle=shuffle)
+        val_data_loader: DataLoader = DataLoader(self.dataset.validation, batch_size=batch_size, shuffle=False)
 
         # TRAINING LOOP
         for epoch in range(epochs):
             start_time: float = time.time()
 
-            train_loss, train_accuracy = _train_epoch(self.task,
-                                                      [self.model],
-                                                      self.dataset.train,
-                                                      shuffle,
-                                                      batch_size,
-                                                      optimizer,
-                                                      loss_function,
-                                                      self.device,
-                                                      self.dtype,
-                                                      )
-            val_loss, val_accuracy = _val_epoch(self.task,
-                                                [self.model, self.likelihood],
-                                                self.dataset.validation,
-                                                batch_size,
-                                                loss_function,
-                                                self.device,
-                                                self.dtype,
-                                                )
+            # train
+            self.model.train()
+            self.likelihood.train()
+
+            train_loss, train_accuracy = _epoch(self.task, [self.model, self.likelihood], train_data_loader, optimizer, loss_function, self.device, self.dtype)
+
+            # validation
+            self.model.eval()
+            self.likelihood.eval()
+
+            with torch.no_grad():
+                val_loss, val_accuracy = _epoch(self.task, [self.model, self.likelihood], val_data_loader, None, loss_function, self.device, self.dtype)
 
             scheduler.step()
 
-            model_state_manager([self.model, self.likelihood], val_loss if val_loss is not None else train_loss)
+            model_state_manager([self.model, self.likelihood], val_loss)
 
             if model_state_manager.early_stop:
                 self.logger.warning(f"early stopping at epoch {epoch + 1}")
@@ -226,6 +225,7 @@ class Scaffold:
 
         return train_info
 
+    @torch.no_grad()
     def _evaluate_regression(self, dataset: Dataset) -> RegressionEvalInfo:
         x, y = next(iter(DataLoader(dataset, batch_size=len(dataset), shuffle=False)))  # type: ignore
 
@@ -246,6 +246,7 @@ class Scaffold:
 
         return RegressionEvalInfo(true_input, true_output, predicted_output, predicted_output_std)
 
+    @torch.no_grad()
     def _evaluate_classification(self, dataset: Dataset) -> ClassificationEvalInfo:
         dataloader: DataLoader = DataLoader(dataset, batch_size=128, shuffle=False)
 
@@ -287,41 +288,6 @@ class Scaffold:
             torch.save(model.state_dict(), model_path)
 
 
-def _train_epoch(task: str,
-                 models: list[Module],
-                 dataset: Dataset,
-                 shuffle: bool,
-                 batch_size: int,
-                 optimizer: Optimizer,
-                 loss_function: Module,
-                 device: torch.device,
-                 dtype: torch.dtype,
-                 ) -> tuple[float, float | None]:
-    for model in models:
-        model.train()
-
-    data_loader: DataLoader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-
-    return _epoch(task, models, data_loader, optimizer, loss_function, device, dtype)
-
-
-@torch.no_grad()
-def _val_epoch(task: str,
-               models: list[Module],
-               dataset: Dataset,
-               batch_size: int,
-               loss_function: Module,
-               device: torch.device,
-               dtype: torch.dtype,
-               ) -> tuple[float, float | None]:
-    for model in models:
-        model.eval()
-
-    data_loader: DataLoader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-
-    return _epoch(task, models, data_loader, None, loss_function, device, dtype)
-
-
 def _epoch(task: str,
            models: list[Module],
            data_loader: DataLoader,
@@ -329,7 +295,7 @@ def _epoch(task: str,
            loss_function: Module,
            device: torch.device,
            dtype: torch.dtype,
-           ) -> tuple[float, float | None]:
+           ) -> tuple[float, float]:
     cumulated_loss: float = 0.0
     total_samples: int = 0
     correct_predictions: int = 0
@@ -357,6 +323,6 @@ def _epoch(task: str,
             correct_predictions += (outputs.argmax(dim=1) == targets).sum().item()  # type: ignore
 
     epoch_loss = cumulated_loss / total_samples
-    epoch_accuracy = correct_predictions / total_samples if task == "classification" else None
+    epoch_accuracy = correct_predictions / total_samples if task == "classification" else -np.inf
 
     return epoch_loss, epoch_accuracy

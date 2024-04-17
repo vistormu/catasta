@@ -17,6 +17,14 @@ class TrainInfo(NamedTuple):
         The maximum value of the training accuracies. If the task is regression, this value will be -inf.
     val_losses : np.ndarray
         Array of the validation losses for each epoch.
+    best_val_loss : float
+        The minimum value of the validation losses.
+    val_accuracies : np.ndarray
+        Array of the validation accuracies for each epoch. If the task is regression, this array will be empty.
+    best_val_accuracy : float
+        The maximum value of the validation accuracies. If the task is regression, this value will be -inf.
+    lr_values : np.ndarray
+        Array of the learning rates for each epoch.
     """
     train_losses: np.ndarray
     best_train_loss: float

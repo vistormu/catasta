@@ -4,7 +4,8 @@ from ...dataclasses import TrainInfo
 
 
 class TrainingLogger:
-    def __init__(self, epochs: int) -> None:
+    def __init__(self, task: str, epochs: int) -> None:
+        self.task: str = task
         self.epochs: int = epochs
 
         self.train_losses: list[float] = []
@@ -19,18 +20,18 @@ class TrainingLogger:
 
     def log(self,
             train_loss: float,
-            train_accuracy: float | None,
-            val_loss: float | None,
-            val_accuracy: float | None,
+            train_accuracy: float,
+            val_loss: float,
+            val_accuracy: float,
             lr: float,
             epoch: int,
             time_per_epoch: float,
             ) -> None:
         self.train_losses.append(train_loss)
-        self.train_accuracies.append(train_accuracy) if train_accuracy is not None else None
+        self.train_accuracies.append(train_accuracy) if self.task == "classification" else None
 
-        self.val_losses.append(val_loss) if val_loss is not None else None
-        self.val_accuracies.append(val_accuracy) if val_accuracy is not None else None
+        self.val_losses.append(val_loss)
+        self.val_accuracies.append(val_accuracy) if self.task == "classification" else None
 
         self.lr_values.append(lr)
 
@@ -39,13 +40,13 @@ class TrainingLogger:
     def get_info(self) -> TrainInfo:
         return TrainInfo(
             train_losses=np.array(self.train_losses),
-            train_accuracies=np.array(self.train_accuracies),
+            train_accuracies=np.array(self.train_accuracies) if self.task == "classification" else np.array([]),
             best_train_loss=np.min(self.train_losses),
-            best_train_accuracy=np.max(self.train_accuracies) if len(self.train_accuracies) > 0 else 0.0,
+            best_train_accuracy=np.max(self.train_accuracies) if self.task == "classification" else -np.inf,
             val_losses=np.array(self.val_losses),
-            val_accuracies=np.array(self.val_accuracies),
-            best_val_loss=np.min(self.val_losses) if len(self.val_losses) > 0 else np.inf,
-            best_val_accuracy=np.max(self.val_accuracies) if len(self.val_accuracies) > 0 else 0.0,
+            val_accuracies=np.array(self.val_accuracies) if self.task == "classification" else np.array([]),
+            best_val_loss=np.min(self.val_losses),
+            best_val_accuracy=np.max(self.val_accuracies) if self.task == "classification" else -np.inf,
             lr_values=np.array(self.lr_values),
         )
 
