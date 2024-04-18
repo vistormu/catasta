@@ -34,19 +34,19 @@ def scan_splits(root: str) -> tuple[str, str, str]:
     for split in splits:
         if "train" in split:
             train_dir_name = split
-        if "val" in split:
+        elif "val" in split:
             validation_dir_name = split
-        if "test" in split:
+        elif "test" in split:
             test_dir_name = split
 
     if not train_dir_name:
         raise ValueError(f"a directory that contains the subword 'train' must be present in {root}")
-    if not validation_dir_name and not test_dir_name:
+    elif not validation_dir_name and not test_dir_name:
         raise ValueError(f"at least a validation or test split must be present in {root}")
-    if not validation_dir_name and test_dir_name:
+    elif not validation_dir_name and test_dir_name:
         Logger("catasta").warning(f"no validation split found in {root}. Using test split as validation split.")
         validation_dir_name = test_dir_name
-    if not test_dir_name and validation_dir_name:
+    elif not test_dir_name and validation_dir_name:
         Logger("catasta").warning(f"no test split found in {root}. Using validation split as test split.")
         test_dir_name = validation_dir_name
 
@@ -80,12 +80,14 @@ class CatastaDataset:
                  task: Literal["regression", "classification"],
                  input_transformations: list[Transformation] = [],
                  output_transformations: list[Transformation] = [],
+                 input_name: str = "input",
+                 output_name: str = "output",
                  ) -> None:
         """Initialize the CatastaDataset object.
 
         Parameters
         ----------
-        root : str
+        root : str_
             The root directory of the Catasta dataset.
         task : Literal["regression", "classification"]
             The task of the dataset.
@@ -93,6 +95,10 @@ class CatastaDataset:
             A list of transformations to apply to the input data, by default [].
         output_transformations : list[~catasta.transformations.Transformation], optional
             A list of transformations to apply to the output data, by default [].
+        input_name : str, optional
+            The name of the column in the CSV files that contains the input data, by default "input".
+        output_name : str, optional
+            The name of the column in the CSV files that contains the output data, by default "output".
 
         Raises
         ------
@@ -101,11 +107,9 @@ class CatastaDataset:
             If the task is not 'regression' or 'classification'.
             If the train split is not found.
             If the validation split is not found and the test split is not found.
-            If the CSV files do not have the columns 'input' and 'output'.
-            If the CSV files do not have the same number of rows for 'input' and 'output'.
-            If the root directory does not contain at least one CSV file.
-            If the number of classes in the train and validation splits are not the same.
-            If the number of classes in the train and test splits are not the same.
+            If the directories do not contain at least one CSV file (regression).
+            If the number of classes in the train and validation splits are not the same (classification).
+            If the number of classes in the train and test splits are not the same (classification).
         """
         self.task: Literal["regression", "classification"] = task
         self.root: str = root if root.endswith("/") else root + "/"
@@ -118,14 +122,20 @@ class CatastaDataset:
             self.train: Dataset = RegressionSubset(self.root + splits[0],
                                                    input_transformations,
                                                    output_transformations,
+                                                   input_name,
+                                                   output_name,
                                                    )
             self.validation: Dataset = RegressionSubset(self.root + splits[1],
                                                         input_transformations,
                                                         output_transformations,
+                                                        input_name,
+                                                        output_name,
                                                         )
             self.test: Dataset = RegressionSubset(self.root + splits[2],
                                                   input_transformations,
                                                   output_transformations,
+                                                  input_name,
+                                                  output_name,
                                                   )
         elif self.task == "classification":
             self.train: Dataset = ClassificationSubset(self.root + splits[0],
@@ -157,58 +167,41 @@ class RegressionSubset(Dataset):
                  path: str,
                  input_transformations: list[Transformation],
                  output_transformations: list[Transformation],
+                 input_name: str,
+                 output_name: str,
                  ) -> None:
         self.root: str = path if path.endswith("/") else path + "/"
 
         self.input_transformations: list[Transformation] = input_transformations
         self.output_transformations: list[Transformation] = output_transformations
-        self.inputs, self.outputs = self._prepare_data(*self._get_data())
+        self.inputs, self.outputs = self._get_data(input_name, output_name)
 
-    def _get_data(self) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    def _get_data(self, input_name: str, output_name: str) -> tuple[np.ndarray, np.ndarray]:
         inputs: list[np.ndarray] = []
         outputs: list[np.ndarray] = []
 
-        filename_counter: int = 0
-        filenames: list[str] = os.listdir(self.root)
-        filenames.sort()
-        for filename in filenames:
-            if not filename.endswith(".csv"):
-                continue
-            filename_counter += 1
+        filenames: list[str] = list(filter(lambda x: x.endswith(".csv"), os.listdir(self.root)))
 
-            data_frame: pd.DataFrame = pd.read_csv(self.root + filename)
-
-            if 'input' not in data_frame.columns or 'output' not in data_frame.columns:
-                raise ValueError(f"CSV file {filename} must have the columns 'input' and 'output'")
-
-            inputs.append(data_frame['input'].to_numpy().flatten())
-            outputs.append(data_frame['output'].to_numpy().flatten())
-
-            if len(inputs[-1]) != len(outputs[-1]):
-                raise ValueError(f"CSV file {filename} must have the same number of rows for 'input' and 'output'")
-
-        if filename_counter == 0:
+        if not filenames:
             raise ValueError(f"Directory {self.root} must contain at least one CSV file")
 
-        return inputs, outputs
+        inputs: list[np.ndarray] = []
+        outputs: list[np.ndarray] = []
+        for filename in filenames:
+            df: pd.DataFrame = pd.read_csv(self.root + filename)
 
-    def _prepare_data(self, inputs: list[np.ndarray], outputs: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
-        transformed_inputs: list[np.ndarray] = []
-        transformed_outputs: list[np.ndarray] = []
+            input = df[input_name].to_numpy()
+            output = df[output_name].to_numpy()
 
-        for input, output in zip(inputs, outputs):
-            for transformation in self.input_transformations:
-                input = transformation(input)
-            for transformation in self.output_transformations:
-                output = transformation(output)
+            for t in self.input_transformations:
+                input = t(input)
+            for t in self.output_transformations:
+                output = t(output)
 
-            transformed_inputs.append(input)
-            transformed_outputs.append(output)
+            inputs.append(input)
+            outputs.append(output)
 
-        inputs_array: np.ndarray = np.concatenate(transformed_inputs)
-        outputs_array: np.ndarray = np.concatenate(transformed_outputs)
-
-        return inputs_array, outputs_array
+        return np.concatenate(inputs), np.concatenate(outputs)
 
     def __len__(self) -> int:
         return self.inputs.shape[0]
