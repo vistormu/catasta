@@ -1,5 +1,5 @@
 from catasta import Scaffold, CatastaDataset
-from catasta.models import TransformerRegressor
+from catasta.models import FeedforwardRegressor
 from catasta.transformations import (
     Normalization,
     WindowSliding,
@@ -11,8 +11,8 @@ from vclog import Logger
 
 
 def main() -> None:
-    n_dim: int = 768
-    dataset_root: str = "tests/data/nylon_wire/"
+    n_dim: int = 128
+    dataset_root: str = "data/nylon_wire/"
     input_trasnsformations = [
         Custom(lambda x: x[:10_000]),
         Normalization("minmax"),
@@ -23,7 +23,6 @@ def main() -> None:
         Normalization("minmax"),
         Slicing(amount=n_dim - 1, end="left"),
     ]
-
     dataset = CatastaDataset(
         root=dataset_root,
         task="regression",
@@ -31,15 +30,12 @@ def main() -> None:
         output_transformations=output_trasnsformations,
     )
 
-    model = TransformerRegressor(
+    model = FeedforwardRegressor(
         context_length=n_dim,
-        n_patches=8,
-        d_model=8,
-        n_heads=4,
-        n_layers=2,
-        feedforward_dim=4,
-        head_dim=4,
+        hidden_dims=[8, 16, 8],
         dropout=0.0,
+        use_layer_norm=True,
+        activation="relu",
     )
     scaffold = Scaffold(
         model=model,
@@ -49,14 +45,12 @@ def main() -> None:
     )
 
     scaffold.train(
-        epochs=100,
+        epochs=10,
         batch_size=256,
         lr=1e-3,
-        final_lr=1e-4,
-        early_stopping=(10, 0.01),
     )
-    info = scaffold.evaluate()
 
+    info = scaffold.evaluate()
     Logger.debug(info)
 
 
