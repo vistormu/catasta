@@ -15,9 +15,9 @@ from torch.optim import (
 )
 
 
-def get_optimizer(id: str, model: Module | list[Module], lr: float) -> Optimizer:
-    if isinstance(model, Module):
-        model = [model]
+def get_optimizer(id: str | Optimizer, model: list[Module], lr: float) -> Optimizer:
+    if isinstance(id, Optimizer):
+        return id
 
     parameters = []
     for m in model:

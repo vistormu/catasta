@@ -59,7 +59,7 @@ class Scaffold:
     def __init__(self, *,
                  model: Module,
                  dataset: CatastaDataset,
-                 optimizer: str,
+                 optimizer: str | Optimizer,
                  loss_function: str | Module,
                  probabilistic: bool = False,
                  likelihood: str | Module | None = None,
@@ -103,7 +103,7 @@ class Scaffold:
 
         self.dataset: CatastaDataset = dataset
 
-        self.optimizer_id: str = optimizer
+        self.optimizer_id: str | Optimizer = optimizer
         self.loss_function_id: str | Module = loss_function
 
         self.logger: Logger = Logger("catasta", disable=not verbose)
