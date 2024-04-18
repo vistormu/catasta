@@ -116,10 +116,10 @@ class Archway:
             predicted_output = output.cpu().numpy()
             predicted_std = np.zeros_like(predicted_output)
 
-        try:
+        if predicted_output.ndim == 2:
             argmax: np.ndarray = np.argmax(predicted_output, axis=1)
-        except:
-            argmax = np.zeros_like(predicted_output)*-1
+        else:
+            argmax: np.ndarray = np.array([])
 
         return PredictionInfo(
             value=predicted_output,
