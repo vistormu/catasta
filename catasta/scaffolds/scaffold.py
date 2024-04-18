@@ -117,7 +117,7 @@ class Scaffold:
               batch_size: int,
               lr: float,
               final_lr: float | None = None,
-              early_stopping: tuple[int, float] | None = None,
+              early_stopping: bool = False,
               shuffle: bool = True,
               ) -> TrainInfo:
         """Train the model on the dataset.
@@ -132,8 +132,8 @@ class Scaffold:
             The initial learning rate.
         final_lr : float, optional
             The final learning rate. If not provided, the learning rate is not decayed. Defaults to None.
-        early_stopping : tuple[int, float], optional
-            The early stopping criteria (patience, delta). If not provided, early stopping is not used. Defaults to None.
+        early_stopping : bool, optional
+            Whether to use early stopping or not. The criterion for early stopping is the derivative of the validation loss. Defaults to False.
         shuffle : bool, optional
             Whether to shuffle the training data or not. Defaults to True.
         """
@@ -171,7 +171,7 @@ class Scaffold:
 
             model_state_manager([self.model, self.likelihood], val_loss)
 
-            if model_state_manager.early_stop:
+            if model_state_manager.stop:
                 self.logger.warning(f"early stopping at epoch {epoch + 1}")
                 break
 
