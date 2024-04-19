@@ -2,11 +2,54 @@ import numpy as np
 
 
 class ClassificationEvalInfo:
+    """A class for evaluating classification models.
+
+    Attributes
+    ----------
+    true_labels : np.ndarray
+        The true labels of the data.
+    predicted_labels : np.ndarray
+        The predicted labels of the data.
+    n_classes : int
+        The number of classes in the data.
+    confusion_matrix : np.ndarray
+        The confusion matrix of the data.
+    tp : np.ndarray
+        The true positives of the data.
+    fp : np.ndarray
+        The false positives of the data.
+    fn : np.ndarray
+        The false negatives of the data.
+    tn : np.ndarray
+        The true negatives of the data.
+    accuracy : np.ndarray
+        The accuracy of the data.
+    precision : np.ndarray
+        The precision of the data.
+    sensitivity : np.ndarray
+        The sensitivity of the data.
+    specificity : np.ndarray
+        The specificity of the data.
+    f1 : np.ndarray
+        The f1 score of the data.
+    """
+
     def __init__(self, *,
                  true_labels: np.ndarray,
                  predicted_labels: np.ndarray,
                  n_classes: int | None = None,
                  ) -> None:
+        """Initialize the ClassificationEvalInfo object.
+
+        Arguments
+        ---------
+        true_labels : np.ndarray
+            The true labels of the data.
+        predicted_labels : np.ndarray
+            The predicted labels of the data.
+        n_classes : int, optional
+            The number of classes in the data. If not provided, it will be inferred from the true labels.
+        """
         self.true_labels: np.ndarray = true_labels
         self.predicted_labels: np.ndarray = predicted_labels
         self.n_classes: int | None = n_classes

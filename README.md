@@ -64,11 +64,9 @@ _Catasta_ supports and plans to support the following Machine Learning tasks:
 - [ ] Binary Classification
 - [ ] Probabilistic Regression and Classification
 
-Models can be saved to `.pt` and `.onnx` extensions.
-
 ### The `archways` module 
 
-Takes a trained model and handles the inference task via Pytorch or onnxruntime.
+Takes a trained model and handles the inference task.
 
 ## Installation
 

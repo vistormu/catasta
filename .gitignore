@@ -2,6 +2,6 @@
 /dist
 /build
 *.egg-info
-tests/data/
-tests/models/
-tests/
+/tests/data/
+/tests/models/
+**/saved_models/
