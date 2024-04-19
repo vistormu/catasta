@@ -45,9 +45,10 @@ def main() -> None:
     )
 
     scaffold.train(
-        epochs=10,
+        epochs=100,
         batch_size=256,
         lr=1e-3,
+        early_stopping=True,
     )
 
     info = scaffold.evaluate()

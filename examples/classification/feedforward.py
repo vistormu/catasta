@@ -27,7 +27,7 @@ def main() -> None:
     )
 
     scaffold.train(
-        epochs=10,
+        epochs=100,
         batch_size=128,
         lr=1e-3,
     )
@@ -39,7 +39,6 @@ def main() -> None:
     scaffold.save(save_model_path)
 
     archway = Archway(
-        model=model,
         path=save_model_path,
     )
 
