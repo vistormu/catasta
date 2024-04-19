@@ -46,7 +46,6 @@ def main() -> None:
     scaffold.save(save_model_path)
 
     archway = Archway(
-        model=model,
         path=save_model_path,
     )
 

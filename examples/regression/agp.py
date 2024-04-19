@@ -29,9 +29,10 @@ def main() -> None:
     )
 
     train_info: TrainInfo = scaffold.train(
-        epochs=500,
+        epochs=5000,
         batch_size=128,
         lr=1e-3,
+        early_stopping=True,
     )
     print(f"min train loss: {train_info.best_train_loss:.4f}")
 
@@ -50,9 +51,8 @@ def main() -> None:
     true_output = df["true_output"].to_numpy()
 
     archway = Archway(
-        model=model,
-        path=save_model_path,
-        verbose=False,
+        path=save_model_path+"ApproximateGPRegressor",
+        # verbose=False,
     )
     predictions: PredictionInfo = archway.predict(true_input.reshape(-1, 1))
 

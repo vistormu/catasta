@@ -8,7 +8,7 @@ class ModelStateManager:
         self.best_loss: float = float("inf")
         self.best_model_states: list[dict] = []
 
-        self.alpha: float = 0.9
+        self.alpha: float = 0.95
         self.stop: bool = False
 
         self.prev_loss: float = float("inf")

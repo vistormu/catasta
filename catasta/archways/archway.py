@@ -5,14 +5,11 @@ import numpy as np
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Identity
+from torch.nn import Identity
 from torch.distributions import Distribution
-
-from gpytorch.models import GP
 
 from vclog import Logger
 
-from catasta.scaffolds.utils import get_likelihood
 from ..dataclasses import PredictionInfo
 
 
@@ -45,9 +42,7 @@ class Archway:
     """
 
     def __init__(self, *,
-                 model: Module,
-                 path: str | None = None,
-                 likelihood: str | Module | None = None,
+                 path: str,
                  device: str = "auto",
                  dtype: str = "float32",
                  verbose: bool = True,
@@ -56,12 +51,8 @@ class Archway:
 
         Arguments
         ---------
-        model : Module
-            The model to perform inference with.
-        path : str, optional
-            The path to the directory containing the saved model. If None, the model is assumed to be loaded in memory.
-        likelihood : str or Module, optional
-            The likelihood function to use for the model. If None, the default likelihood for the model is used.
+        path : str
+            The path to the directory containing the saved model. The directory should be named after the model.
         device : str, optional
             The device to perform inference on. Can be "cpu", "cuda", or "auto".
         dtype : str, optional
@@ -74,16 +65,10 @@ class Archway:
         ValueError
             If the load path is a file path.
         """
-        self.path: str | None = path
+        self.path: str = path if path.endswith("/") else f"{path}/"
 
         self.device: torch.device = _get_device(device)
         self.dtype: torch.dtype = _get_dtype(dtype)
-
-        self.model: Module = model
-        if isinstance(self.model, GP) and likelihood is None:
-            self.likelihood: Module = get_likelihood("gaussian")
-        else:
-            self.likelihood: Module = get_likelihood(likelihood)
 
         self.logger: Logger = Logger("catasta", disable=not verbose)
 
@@ -128,26 +113,27 @@ class Archway:
         )
 
     def _load_model(self) -> None:
-        if self.path is None:
-            self.model.to(self.device, self.dtype)
-            self.likelihood.to(self.device, self.dtype)
-            return
-
         if "." in self.path:
             raise ValueError("load path must be a directory, not a file path")
 
-        save_path: str = os.path.join(self.path, self.model.__class__.__name__)
+        self.model = Identity()
+        self.likelihood = Identity()
+        for model in os.listdir(self.path):
+            if os.path.basename(self.path.rstrip("/")).lower() == model.split(".")[0].lower():
+                self.model = torch.load(os.path.join(self.path, model), map_location=self.device)
+            elif "likelihood" in model.lower():
+                self.likelihood = torch.load(os.path.join(self.path, model), map_location=self.device)
 
-        for model in [self.model, self.likelihood]:
-            if isinstance(model, Identity):
-                continue
+            self.logger.info(f"loaded {model} from {self.path}")
 
-            model_path: str = os.path.join(save_path, f"{model.__class__.__name__}.pt")
-            model.load_state_dict(torch.load(model_path, map_location="cpu"))
-            model.to(self.device, self.dtype)
-            model.eval()
+        if isinstance(self.model, Identity):
+            raise ValueError("model not found")
 
-            self.logger.info(f"loaded {model.__class__.__name__} from {model_path}")
+        self.model.to(self.device, self.dtype)
+        self.likelihood.to(self.device, self.dtype)
+
+        self.model.eval()
+        self.likelihood.eval()
 
     def _log_inference_info(self) -> None:
         n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)

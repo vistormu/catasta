@@ -250,7 +250,7 @@ class Scaffold:
                 continue
 
             model_path: str = os.path.join(save_path, f"{model.__class__.__name__}.pt")
-            torch.save(model.state_dict(), model_path)
+            torch.save(model, model_path)
 
             self.logger.info(f"model saved to {model_path}")
 
