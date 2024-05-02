@@ -5,7 +5,7 @@ from PIL import Image
 
 from catasta import Scaffold, CatastaDataset, Archway
 from catasta.models import MambaClassifier
-from catasta.dataclasses import ClassificationEvalInfo
+from catasta.dataclasses import EvalInfo
 
 
 def main() -> None:
@@ -44,7 +44,7 @@ def main() -> None:
     scaffold.save(save_model_path)
 
     archway = Archway(
-        path=save_model_path,
+        path=save_model_path+model.__class__.__name__,
     )
 
     imgs = []
@@ -60,9 +60,10 @@ def main() -> None:
     predicted_output = prediction.argmax
     true_labels = np.zeros(len(predicted_output)).astype(int)
 
-    info = ClassificationEvalInfo(
-        true_labels=true_labels,
-        predicted_labels=predicted_output,
+    info = EvalInfo(
+        task="classification",
+        true_output=true_labels,
+        predicted_output=predicted_output,
         n_classes=10,
     )
 
