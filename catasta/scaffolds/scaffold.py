@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch.distributions import Distribution
 
 from gpytorch.models.gp import GP
+from gpytorch.mlls import MarginalLogLikelihood
 
 from ..datasets import CatastaDataset
 from .utils import (
@@ -329,8 +330,8 @@ def _epoch(task: str,
             for model in models[1:]:
                 outputs = model(outputs)
 
-        loss: Tensor = loss_function(outputs, targets)
-        if isinstance(outputs, Distribution):
+        loss: Tensor = loss_function(outputs, targets)  # type: ignore
+        if isinstance(loss_function, MarginalLogLikelihood):
             loss = -loss
 
         loss.backward() if optimizer is not None else None
