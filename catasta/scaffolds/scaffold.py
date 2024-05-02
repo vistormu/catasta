@@ -23,11 +23,7 @@ from .utils import (
     ModelStateManager,
     TrainingLogger,
 )
-from ..dataclasses import (
-    TrainInfo,
-    RegressionEvalInfo,
-    ClassificationEvalInfo,
-)
+from ..dataclasses import TrainInfo, EvalInfo
 
 from vclog import Logger
 
@@ -188,24 +184,22 @@ class Scaffold:
                 time_per_epoch=time_per_epoch,
             )
 
-            self.logger.info(training_logger, flush=True)
+            Logger.plain(training_logger, color="green")
 
         # END OF TRAINING
         train_info = training_logger.get_info()
-
-        self.logger.info(f"training completed | best loss: {train_info.best_val_loss:.4f}")
 
         model_state_manager.load_best_model_state([self.model, self.likelihood])
 
         return train_info
 
-    def evaluate(self) -> RegressionEvalInfo | ClassificationEvalInfo:
+    def evaluate(self) -> EvalInfo:
         """Evaluate the model on the test set of the dataset.
 
         Returns
         -------
-        ~catasta.dataclasses.RegressionEvalInfo | ~catasta.dataclasses.ClassificationEvalInfo
-            The evaluation information. If the task is regression, a `RegressionEvalInfo` object is returned. If the task is classification, a `ClassificationEvalInfo` object is returned.
+        ~catasta.dataclasses.EvalInfo
+            The evaluation information.
         """
         self.model.eval()
         self.likelihood.eval()
@@ -263,11 +257,10 @@ class Scaffold:
     -> task: {self.task}
     -> dataset: {self.dataset.root} ({n_samples} samples)
     -> model: {self.model.__class__.__name__} ({n_params} trainable parameters)
-    -> device: {self.device} ({device_name})
-        """)
+    -> device: {self.device} ({device_name}""")
 
     @torch.no_grad()
-    def _evaluate_regression(self, dataset: Dataset) -> RegressionEvalInfo:
+    def _evaluate_regression(self, dataset: Dataset) -> EvalInfo:
         x, y = next(iter(DataLoader(dataset, batch_size=len(dataset), shuffle=False)))  # type: ignore
 
         x: Tensor = x.to(self.device, dtype=self.dtype)
@@ -275,7 +268,6 @@ class Scaffold:
 
         output = self.likelihood(self.model(x))
 
-        true_input: np.ndarray = x.cpu().numpy()[:, -1]
         true_output: np.ndarray = y.cpu().numpy()
 
         if isinstance(output, Distribution):
@@ -285,10 +277,15 @@ class Scaffold:
             predicted_output: np.ndarray = output.cpu().numpy()
             predicted_output_std = np.zeros_like(true_output)
 
-        return RegressionEvalInfo(true_input, true_output, predicted_output, predicted_output_std)
+        return EvalInfo(
+            task="regression",
+            true_output=true_output,
+            predicted_output=predicted_output,
+            predicted_std=predicted_output_std,
+        )
 
     @torch.no_grad()
-    def _evaluate_classification(self, dataset: Dataset) -> ClassificationEvalInfo:
+    def _evaluate_classification(self, dataset: Dataset) -> EvalInfo:
         dataloader: DataLoader = DataLoader(dataset, batch_size=128, shuffle=False)
 
         true_labels: list[int] = []
@@ -302,9 +299,10 @@ class Scaffold:
             true_labels.append(y_batch.cpu().numpy())
             predicted_labels.append(output.argmax(dim=1).cpu().numpy())
 
-        return ClassificationEvalInfo(
-            true_labels=np.concatenate(true_labels),
-            predicted_labels=np.concatenate(predicted_labels),
+        return EvalInfo(
+            task="classification",
+            true_output=np.concatenate(true_labels),
+            predicted_output=np.concatenate(predicted_labels),
         )
 
 
