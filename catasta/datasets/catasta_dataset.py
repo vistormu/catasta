@@ -80,7 +80,7 @@ class CatastaDataset:
                  task: Literal["regression", "classification"],
                  input_transformations: list[Transformation] = [],
                  output_transformations: list[Transformation] = [],
-                 input_name: str = "input",
+                 input_name: str | list[str] = "input",
                  output_name: str = "output",
                  ) -> None:
         """Initialize the CatastaDataset object.
@@ -95,8 +95,8 @@ class CatastaDataset:
             A list of transformations to apply to the input data, by default [].
         output_transformations : list[~catasta.transformations.Transformation], optional
             A list of transformations to apply to the output data, by default [].
-        input_name : str, optional
-            The name of the column in the CSV files that contains the input data, by default "input".
+        input_name : str | list[str], optional
+            The name of the columns in the CSV files that contains the input data, by default "input".
         output_name : str, optional
             The name of the column in the CSV files that contains the output data, by default "output".
 
@@ -167,7 +167,7 @@ class RegressionSubset(Dataset):
                  path: str,
                  input_transformations: list[Transformation],
                  output_transformations: list[Transformation],
-                 input_name: str,
+                 input_name: str | list[str],
                  output_name: str,
                  ) -> None:
         self.root: str = path if path.endswith("/") else path + "/"
@@ -176,7 +176,7 @@ class RegressionSubset(Dataset):
         self.output_transformations: list[Transformation] = output_transformations
         self.inputs, self.outputs = self._get_data(input_name, output_name)
 
-    def _get_data(self, input_name: str, output_name: str) -> tuple[np.ndarray, np.ndarray]:
+    def _get_data(self, input_name: str | list[str], output_name: str) -> tuple[np.ndarray, np.ndarray]:
         inputs: list[np.ndarray] = []
         outputs: list[np.ndarray] = []
 
@@ -239,7 +239,7 @@ class ClassificationSubset(Dataset):
             # get all images paths and corresponding class names
             for root, _, files in os.walk(class_path):
                 for file in files:
-                    if not file.endswith(EXTENSIONS):
+                    if not file.lower().endswith(EXTENSIONS):
                         continue
 
                     sample = Sample(os.path.join(root, file), class_name)
