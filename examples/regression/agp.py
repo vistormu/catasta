@@ -51,8 +51,8 @@ def main() -> None:
     true_output = df["true_output"].to_numpy()
 
     archway = Archway(
-        path=save_model_path+"ApproximateGPRegressor",
-        # verbose=False,
+        path=save_model_path+model.__class__.__name__,
+        verbose=False,
     )
     predictions: PredictionInfo = archway.predict(true_input.reshape(-1, 1))
 

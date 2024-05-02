@@ -31,7 +31,7 @@ def get_actvation_function(activation: str) -> Module:
 
 class FeedforwardClassifier(Module):
     def __init__(self, *,
-                 input_size: tuple[int, int, int],
+                 input_shape: tuple[int, int, int],
                  dropout: float,
                  n_classes: int,
                  hidden_dims: list[int] = [],
@@ -41,7 +41,7 @@ class FeedforwardClassifier(Module):
                  ) -> None:
         super().__init__()
 
-        image_height, image_width, image_channels = input_size
+        image_height, image_width, image_channels = input_shape
         input_dim: int = image_height * image_width * image_channels
 
         layers: list[Module] = []

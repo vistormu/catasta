@@ -1,4 +1,3 @@
-from .regression_eval_info import RegressionEvalInfo
-from .classification_eval_info import ClassificationEvalInfo
 from .train_info import TrainInfo
 from .prediction_info import PredictionInfo
+from .eval_info import EvalInfo

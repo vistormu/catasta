@@ -6,8 +6,7 @@ from catasta.transformations import (
     Slicing,
     Custom,
 )
-
-from vclog import Logger
+from catasta.dataclasses import EvalInfo
 
 
 def main() -> None:
@@ -49,15 +48,15 @@ def main() -> None:
     )
 
     scaffold.train(
-        epochs=100,
+        epochs=10,
         batch_size=256,
         lr=1e-3,
         final_lr=1e-4,
         early_stopping=True,
     )
-    info = scaffold.evaluate()
 
-    Logger.debug(info)
+    info: EvalInfo = scaffold.evaluate()
+    print(info)
 
 
 if __name__ == '__main__':
