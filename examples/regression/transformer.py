@@ -53,6 +53,7 @@ def main() -> None:
         lr=1e-3,
         final_lr=1e-4,
         early_stopping=True,
+        data_loader_workers=4,
     )
 
     info: EvalInfo = scaffold.evaluate()
