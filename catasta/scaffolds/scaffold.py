@@ -109,6 +109,16 @@ class Scaffold:
         if probabilistic:
             self.logger.warning("probabilistic models are not yet supported")
 
+    def _log_training_info(self) -> None:
+        n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
+        n_samples: int = len(self.dataset.train)  # type: ignore
+        self.logger.info(f"""training
+    -> task:     {self.task}
+    -> dataset:  {self.dataset.root} ({n_samples} samples)
+    -> model:    {self.model.__class__.__name__} ({n_params} trainable parameters)
+    -> device:   {self.device} ({device_name})""")
+
     def train(self, *,
               epochs: int,
               batch_size: int,
@@ -248,16 +258,6 @@ class Scaffold:
             torch.save(model, model_path)
 
             self.logger.info(f"model saved to {model_path}")
-
-    def _log_training_info(self) -> None:
-        n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
-        n_samples: int = len(self.dataset.train)  # type: ignore
-        self.logger.info(f"""training
-    -> task: {self.task}
-    -> dataset: {self.dataset.root} ({n_samples} samples)
-    -> model: {self.model.__class__.__name__} ({n_params} trainable parameters)
-    -> device: {self.device} ({device_name}""")
 
     @torch.no_grad()
     def _evaluate_regression(self, dataset: Dataset) -> EvalInfo:
