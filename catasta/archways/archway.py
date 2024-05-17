@@ -41,7 +41,7 @@ class Archway:
     """A class for inference with a trained model.
     """
 
-    def __init__(self, *,
+    def __init__(self,
                  path: str,
                  device: str = "auto",
                  dtype: str = "float32",
