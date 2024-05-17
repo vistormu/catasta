@@ -54,13 +54,13 @@ class TrainingLogger:
         epoch: int = len(self.train_losses)
         percentage: float = epoch / self.epochs
         percentage_str: str = f"{int(percentage * 100)}%" if percentage > 0.09 else f"0{int(percentage * 100)}%"
-        epoch_msg: str = f"    -> epoch: {epoch}/{self.epochs} ({percentage_str})\n"
+        epoch_msg: str = f"    -> epoch:    {epoch}/{self.epochs} ({percentage_str})\n"
 
         # LOSS
         train_loss: str = f"{self.train_losses[-1]:.4f}"
         val_loss: str = f"{self.val_losses[-1]:.4f}"
         best_val_loss: str = f"{min(self.val_losses):.4f}"
-        loss_msg: str = f"    -> loss: train({train_loss}), val({val_loss}), best({best_val_loss})\n"
+        loss_msg: str = f"    -> loss:     train({train_loss}), val({val_loss}), best({best_val_loss})\n"
 
         # ACCURACY
         train_accuracy: str = f"{self.train_accuracies[-1]:.4f}" if len(self.train_accuracies) > 0 else ""
@@ -71,7 +71,7 @@ class TrainingLogger:
         # TIME
         time_remaining: int = int(self.avg_time_per_epoch * (self.epochs - len(self.train_losses)))
         time_remaining_str: str = f"{int(time_remaining/60)}m {time_remaining%60}s"
-        time_msg: str = f"    -> time remaining: {time_remaining_str}"
+        time_msg: str = f"    -> time:     {time_remaining_str}"
 
         clear_line: str = "\x1b[2K" + "\r" + "\x1b[1A"
 

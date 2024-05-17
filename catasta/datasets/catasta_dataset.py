@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple, Literal
+from typing import NamedTuple
 
 import pandas as pd
 import numpy as np
@@ -77,11 +77,12 @@ class CatastaDataset:
 
     def __init__(self,
                  root: str,
-                 task: Literal["regression", "classification"],
+                 task: str,
                  input_transformations: list[Transformation] = [],
                  output_transformations: list[Transformation] = [],
                  input_name: str | list[str] = "input",
                  output_name: str = "output",
+                 grayscale: bool = False,
                  ) -> None:
         """Initialize the CatastaDataset object.
 
@@ -89,8 +90,8 @@ class CatastaDataset:
         ----------
         root : str_
             The root directory of the Catasta dataset.
-        task : Literal["regression", "classification"]
-            The task of the dataset.
+        task : str
+            The task of the dataset. Either 'regression' or 'classification'.
         input_transformations : list[~catasta.transformations.Transformation], optional
             A list of transformations to apply to the input data, by default [].
         output_transformations : list[~catasta.transformations.Transformation], optional
@@ -99,6 +100,8 @@ class CatastaDataset:
             The name of the columns in the CSV files that contains the input data, by default "input".
         output_name : str, optional
             The name of the column in the CSV files that contains the output data, by default "output".
+        grayscale : bool, optional
+            Whether to convert the images to grayscale, by default False.
 
         Raises
         ------
@@ -111,7 +114,7 @@ class CatastaDataset:
             If the number of classes in the train and validation splits are not the same (classification).
             If the number of classes in the train and test splits are not the same (classification).
         """
-        self.task: Literal["regression", "classification"] = task
+        self.task: str = task
         self.root: str = root if root.endswith("/") else root + "/"
         if not os.path.isdir(self.root):
             raise ValueError(f"root must be a directory. Found {self.root}")
@@ -140,12 +143,15 @@ class CatastaDataset:
         elif self.task == "classification":
             self.train: Dataset = ClassificationSubset(self.root + splits[0],
                                                        input_transformations,
+                                                       grayscale,
                                                        )
             self.validation: Dataset = ClassificationSubset(self.root + splits[1],
                                                             input_transformations,
+                                                            grayscale,
                                                             )
             self.test: Dataset = ClassificationSubset(self.root + splits[2],
                                                       input_transformations,
+                                                      grayscale,
                                                       )
 
             # same number of classes in all splits
@@ -222,10 +228,11 @@ class ClassificationSubset(Dataset):
     def __init__(self,
                  path: str,
                  input_transformations: list[Transformation],
+                 grayscale: bool,
                  ) -> None:
         self.path: str = path if path.endswith("/") else path + "/"
-
         self.input_transformations: list[Transformation] = input_transformations
+        self.grayscale: bool = grayscale
 
         self.classes: list[str] = scan_classes(path)
         self.samples: list[Sample] = []
@@ -256,7 +263,7 @@ class ClassificationSubset(Dataset):
         else:
             with open(sample.path, "rb") as f:
                 img: Image.Image = Image.open(f)
-                img = img.convert("RGB")
+                img = img.convert("RGB" if not self.grayscale else "L")
 
             sample_array: np.ndarray = np.array(img)
 
