@@ -82,6 +82,7 @@ class CatastaDataset:
                  output_transformations: list[Transformation] = [],
                  input_name: str | list[str] = "input",
                  output_name: str = "output",
+                 grayscale: bool = False,
                  ) -> None:
         """Initialize the CatastaDataset object.
 
@@ -99,6 +100,8 @@ class CatastaDataset:
             The name of the columns in the CSV files that contains the input data, by default "input".
         output_name : str, optional
             The name of the column in the CSV files that contains the output data, by default "output".
+        grayscale : bool, optional
+            Whether to convert the images to grayscale, by default False.
 
         Raises
         ------
@@ -140,12 +143,15 @@ class CatastaDataset:
         elif self.task == "classification":
             self.train: Dataset = ClassificationSubset(self.root + splits[0],
                                                        input_transformations,
+                                                       grayscale,
                                                        )
             self.validation: Dataset = ClassificationSubset(self.root + splits[1],
                                                             input_transformations,
+                                                            grayscale,
                                                             )
             self.test: Dataset = ClassificationSubset(self.root + splits[2],
                                                       input_transformations,
+                                                      grayscale,
                                                       )
 
             # same number of classes in all splits
@@ -222,10 +228,11 @@ class ClassificationSubset(Dataset):
     def __init__(self,
                  path: str,
                  input_transformations: list[Transformation],
+                 grayscale: bool,
                  ) -> None:
         self.path: str = path if path.endswith("/") else path + "/"
-
         self.input_transformations: list[Transformation] = input_transformations
+        self.grayscale: bool = grayscale
 
         self.classes: list[str] = scan_classes(path)
         self.samples: list[Sample] = []
@@ -256,7 +263,7 @@ class ClassificationSubset(Dataset):
         else:
             with open(sample.path, "rb") as f:
                 img: Image.Image = Image.open(f)
-                img = img.convert("RGB")
+                img = img.convert("RGB" if not self.grayscale else "L")
 
             sample_array: np.ndarray = np.array(img)
 
