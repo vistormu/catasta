@@ -83,7 +83,7 @@ class EvalInfo:
     def _calculate_regression_metrics(self, y: np.ndarray, y_pred: np.ndarray) -> None:
         self.mae: float = np.mean(np.abs(y - y_pred)).astype(float)
         self.mse: float = np.mean((y - y_pred)**2).astype(float)
-        self.rmse: float = np.sqrt(np.mean((y - y_pred)**2))
+        self.rmse: float = np.sqrt(np.mean((y - y_pred)**2)).astype(float)
         self.r2: float = 1 - np.sum((y - y_pred)**2) / np.sum((y - np.mean(y))**2).astype(float)
 
     def _calculate_classification_metrics(self, y: np.ndarray, y_pred: np.ndarray, n_classes: int | None) -> None:
