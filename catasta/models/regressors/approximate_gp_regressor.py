@@ -42,7 +42,7 @@ class ApproximateGPRegressor(ApproximateGP):
                  context_length: int,
                  kernel: str = "rq",
                  mean: str = "constant",
-                 use_ard: bool = False,
+                 use_ard: bool = True,
                  ) -> None:
         '''
         Arguments
