@@ -92,6 +92,8 @@ class Scaffold:
         self.device: torch.device = _get_device(device)
         self.dtype: torch.dtype = _get_dtype(dtype)
 
+        self.verbose: bool = verbose
+
         self.model: Module = model.to(self.device, self.dtype)
         if isinstance(self.model, GP) and likelihood is None:
             self.likelihood: Module = get_likelihood("gaussian").to(self.device, self.dtype)
@@ -194,7 +196,7 @@ class Scaffold:
                 time_per_epoch=time_per_epoch,
             )
 
-            Logger.plain(training_logger, color="green")
+            Logger.plain(training_logger, color="green") if self.verbose else None
 
         # END OF TRAINING
         train_info = training_logger.get_info()
