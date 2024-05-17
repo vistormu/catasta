@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple, Literal
+from typing import NamedTuple
 
 import pandas as pd
 import numpy as np
@@ -77,7 +77,7 @@ class CatastaDataset:
 
     def __init__(self,
                  root: str,
-                 task: Literal["regression", "classification"],
+                 task: str,
                  input_transformations: list[Transformation] = [],
                  output_transformations: list[Transformation] = [],
                  input_name: str | list[str] = "input",
@@ -90,8 +90,8 @@ class CatastaDataset:
         ----------
         root : str_
             The root directory of the Catasta dataset.
-        task : Literal["regression", "classification"]
-            The task of the dataset.
+        task : str
+            The task of the dataset. Either 'regression' or 'classification'.
         input_transformations : list[~catasta.transformations.Transformation], optional
             A list of transformations to apply to the input data, by default [].
         output_transformations : list[~catasta.transformations.Transformation], optional
@@ -114,7 +114,7 @@ class CatastaDataset:
             If the number of classes in the train and validation splits are not the same (classification).
             If the number of classes in the train and test splits are not the same (classification).
         """
-        self.task: Literal["regression", "classification"] = task
+        self.task: str = task
         self.root: str = root if root.endswith("/") else root + "/"
         if not os.path.isdir(self.root):
             raise ValueError(f"root must be a directory. Found {self.root}")
