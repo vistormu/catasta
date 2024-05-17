@@ -1,7 +1,6 @@
 import platform
 import time
 import os
-import gc
 
 import numpy as np
 
@@ -195,7 +194,6 @@ class Scaffold:
             scheduler.step()
 
             torch.cuda.empty_cache() if self.device.type == "cuda" else None
-            gc.collect()
 
             model_state_manager([self.model, self.likelihood], val_loss)
 
