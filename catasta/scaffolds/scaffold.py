@@ -46,7 +46,6 @@ class Scaffold:
                  dataset: CatastaDataset,
                  optimizer: str | Optimizer,
                  loss_function: str | Module,
-                 probabilistic: bool = False,
                  likelihood: str | Module | None = None,
                  device: str = "auto",
                  verbose: bool = True,
@@ -63,8 +62,6 @@ class Scaffold:
             The optimizer to be used for training. The user can either pass a string with the name of the optimizer or a custom optimizer. One of: adam, sgd, adamw, lbfgs, rmsprop, rprop, adadelta, adagrad, adamax, asgd, sparseadam.
         loss_function : str | torch.nn.Module
             The loss function to be used for training. The user can either pass a string with the name of the loss function or a custom loss function. A list of available loss functions is in ~catasta.scaffolds.utils.available_loss_functions
-        probabilistic : bool, optional
-            Wheter to use probabilistic training or not. Defaults to False. Not yet supported.
         likelihood : str | torch.nn.Module, optional
             The likelihood to be used for Gaussian Processes. If the user is training a GP model and the likelihood is not provided, the default Gaussian likelihood is used. One of: gaussian, bernoulli, laplace, softmax, studentt, beta. 
         device : str, optional
@@ -92,9 +89,6 @@ class Scaffold:
 
         self.logger: Logger = Logger("catasta", disable=not verbose)
         self._log_training_info()
-
-        if probabilistic:
-            self.logger.warning("probabilistic models are not yet supported")
 
     def _log_training_info(self) -> None:
         n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
