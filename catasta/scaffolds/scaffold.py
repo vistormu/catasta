@@ -311,7 +311,8 @@ class Scaffold:
             inputs: Tensor = inputs.to(self.device, self.dtype)
             targets: Tensor = targets.to(self.device, self.dtype if self.task == "regression" else torch.long)
 
-            optimizer.zero_grad() if optimizer is not None else None
+            if optimizer is not None:
+                optimizer.zero_grad()
 
             output = self.likelihood(self.model(inputs))
 
@@ -319,13 +320,14 @@ class Scaffold:
             if isinstance(loss_function, MarginalLogLikelihood):
                 loss = -loss
 
-            loss.backward() if optimizer is not None else None
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0) if optimizer is not None else None  # type: ignore
-
-            optimizer.step() if optimizer is not None else None
+            if optimizer is not None:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)  # type: ignore
+                optimizer.step()
 
             cumulated_loss += loss.item() * inputs.shape[0]
             total_samples += inputs.shape[0]
+
             if self.task == "classification":
                 correct_predictions += (output.argmax(dim=1) == targets).sum().item()  # type: ignore
 
