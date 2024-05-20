@@ -40,18 +40,6 @@ def _get_device(device: str) -> torch.device:
             raise ValueError("Invalid device")
 
 
-def _get_dtype(dtype: str) -> torch.dtype:
-    match dtype:
-        case "float16":
-            return torch.float16
-        case "float32":
-            return torch.float32
-        case "float64":
-            return torch.float64
-        case _:
-            raise ValueError("Invalid dtype")
-
-
 class Scaffold:
     def __init__(self, *,
                  model: Module,
@@ -61,7 +49,6 @@ class Scaffold:
                  probabilistic: bool = False,
                  likelihood: str | Module | None = None,
                  device: str = "auto",
-                 dtype: str = "float32",
                  verbose: bool = True,
                  ) -> None:
         """The `Scaffold` class is a high-level API for training models on Catasta datasets.
@@ -82,15 +69,13 @@ class Scaffold:
             The likelihood to be used for Gaussian Processes. If the user is training a GP model and the likelihood is not provided, the default Gaussian likelihood is used. One of: gaussian, bernoulli, laplace, softmax, studentt, beta. 
         device : str, optional
             The device to be used for training. One of "cpu", "cuda", or "auto". Defaults to "auto".
-        dtype : str, optional
-            The data type to be used for training. One of "float16", "float32", or "float64". Defaults to "float32".
         verbose : bool, optional
             Whether to print training information or not. Defaults to True.
         """
         self.task: str = dataset.task
 
         self.device: torch.device = _get_device(device)
-        self.dtype: torch.dtype = _get_dtype(dtype)
+        self.dtype: torch.dtype = torch.float32
 
         self.verbose: bool = verbose
 
@@ -240,7 +225,6 @@ class Scaffold:
 
     def save(self,
              path: str,
-             dtype: str = "float32",
              ) -> None:
         """Save the model to a file.
 
@@ -248,8 +232,6 @@ class Scaffold:
         ---------
         path : str
             The directory to save the model to.
-        dtype : str, optional
-            The data type to save the model in. Can be "float16", "float32", or "float64". Defaults to "float32".
 
         Raises
         ------
@@ -259,15 +241,14 @@ class Scaffold:
         if "." in path:
             raise ValueError("save path must be a directory")
 
-        model_dtype: torch.dtype = _get_dtype(dtype)
         model_device: torch.device = torch.device("cpu")
 
         save_path: str = os.path.join(path, self.model.__class__.__name__)
 
         os.makedirs(save_path, exist_ok=True)
 
-        self.model.to(model_device, model_dtype)
-        self.likelihood.to(model_device, model_dtype)
+        self.model.to(model_device)
+        self.likelihood.to(model_device)
 
         for model in [self.model, self.likelihood]:
             if isinstance(model, Identity):
