@@ -93,9 +93,16 @@ def _regression_split(dataset: str,
     val = df.iloc[indices[train_index:val_index]] if val_split else pd.DataFrame()
     test = df.iloc[indices[val_index:test_index]] if test_split else pd.DataFrame()
 
-    train.to_csv(os.path.join(destination, "training.csv"), index=False)
-    val.to_csv(os.path.join(destination, "validation.csv"), index=False) if val_split else None
-    test.to_csv(os.path.join(destination, "testing.csv"), index=False) if test_split else None
+    filename = os.path.basename(dataset)
+
+    train_path = os.path.join(destination, "training", filename)
+    train.to_csv(train_path, index=False)
+
+    val_path = os.path.join(destination, "validation", filename)
+    val.to_csv(val_path, index=False) if val_split else None
+
+    test_path = os.path.join(destination, "testing", filename)
+    test.to_csv(test_path, index=False) if test_split else None
 
 
 def _classification_split(dataset: str,
