@@ -108,7 +108,7 @@ class Scaffold:
               batch_size: int,
               lr: float,
               max_lr: float | None = None,
-              early_stopping: bool = False,
+              early_stopping_alpha: float | None = None,
               shuffle: bool = True,
               data_loader_workers: int = 0,
               ) -> TrainInfo:
@@ -124,8 +124,8 @@ class Scaffold:
             The initial learning rate.
         max_lr : float, optional
             The maximum learning rate to use for the OneCycleLR scheduler. If not provided, the learning rate will not decay. Defaults to None.
-        early_stopping : bool, optional
-            Whether to use early stopping or not. The criterion for early stopping is the derivative of the validation loss. Defaults to False.
+        early_stopping_alpha : bool, optional
+            The smoothing factor for the early stopping criterion. If set to a value, the training will stop when the validation loss curve starts increasing. A good smoothing factor ranges in [0.95, 1). Defaults to None.
         shuffle : bool, optional
             Whether to shuffle the training data or not. Defaults to True.
         data_loader_workers : int, optional
@@ -135,7 +135,7 @@ class Scaffold:
         optimizer: Optimizer = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
         loss_function: Module = get_loss_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))  # type: ignore
 
-        model_state_manager: ModelStateManager = ModelStateManager(early_stopping)
+        model_state_manager: ModelStateManager = ModelStateManager(early_stopping_alpha)
 
         training_logger: TrainingLogger = TrainingLogger(self.task, epochs)
 
