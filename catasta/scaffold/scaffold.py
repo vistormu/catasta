@@ -9,7 +9,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Identity
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import OneCycleLR
 from torch.utils.data import DataLoader, Dataset
 from torch.distributions import Distribution
 
@@ -91,11 +91,13 @@ class Scaffold:
         self.logger: Logger = Logger("catasta", disable=not verbose)
         self._log_training_info()
 
+        torch.backends.cudnn.benchmark = True
+
     def _log_training_info(self) -> None:
         n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
         n_samples: int = len(self.dataset.train)  # type: ignore
-        self.logger.info(f"""training
+        self.logger.info(f"""   TRAINING INFO
     -> task:     {self.task}
     -> dataset:  {self.dataset.root} ({n_samples} samples)
     -> model:    {self.model.__class__.__name__} ({n_params} trainable parameters)
@@ -105,7 +107,7 @@ class Scaffold:
               epochs: int,
               batch_size: int,
               lr: float,
-              final_lr: float | None = None,
+              max_lr: float | None = None,
               early_stopping: bool = False,
               shuffle: bool = True,
               data_loader_workers: int = 0,
@@ -120,22 +122,20 @@ class Scaffold:
             The batch size to use for training.
         lr : float
             The initial learning rate.
-        final_lr : float, optional
-            The final learning rate. If not provided, the learning rate is not decayed. Defaults to None.
+        max_lr : float, optional
+            The maximum learning rate to use for the OneCycleLR scheduler. If not provided, the learning rate will not decay. Defaults to None.
         early_stopping : bool, optional
             Whether to use early stopping or not. The criterion for early stopping is the derivative of the validation loss. Defaults to False.
         shuffle : bool, optional
             Whether to shuffle the training data or not. Defaults to True.
         data_loader_workers : int, optional
-            The number of workers to use for the data loader. Defaults to 0.
+            The number of workers to use for the data loader. Defaults to 0. Tip: set to 4 times the number of GPUs.
         """
         # VARIABLES
         optimizer: Optimizer = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
         loss_function: Module = get_loss_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))  # type: ignore
 
         model_state_manager: ModelStateManager = ModelStateManager(early_stopping)
-        lr_decay: float = (final_lr / lr) ** (1 / epochs) if final_lr else 1.0
-        scheduler: StepLR = StepLR(optimizer, step_size=1, gamma=lr_decay)
 
         training_logger: TrainingLogger = TrainingLogger(self.task, epochs)
 
@@ -154,6 +154,8 @@ class Scaffold:
             pin_memory=True if self.device.type == "cuda" else False,
         )
 
+        scheduler: OneCycleLR | None = OneCycleLR(optimizer, max_lr=max_lr, epochs=epochs, steps_per_epoch=len(train_data_loader)) if max_lr else None
+
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -164,15 +166,13 @@ class Scaffold:
             # train
             self.model.train()
             self.likelihood.train()
-            train_loss, train_accuracy = self._epoch(train_data_loader, optimizer, loss_function)
+            train_loss, train_accuracy = self._epoch(train_data_loader, loss_function, optimizer, scheduler)
 
             # validation
             self.model.eval()
             self.likelihood.eval()
             with torch.no_grad():
-                val_loss, val_accuracy = self._epoch(val_data_loader, None, loss_function)
-
-            scheduler.step()
+                val_loss, val_accuracy = self._epoch(val_data_loader, loss_function, None, None)
 
             model_state_manager([self.model, self.likelihood], val_loss)
 
@@ -299,15 +299,16 @@ class Scaffold:
 
     def _epoch(self,
                data_loader: DataLoader,
-               optimizer: Optimizer | None,
                loss_function: Module,
+               optimizer: Optimizer | None,
+               scheduler: OneCycleLR | None,
                ) -> tuple[float, float]:
         cumulated_loss: float = 0.0
         total_samples: int = 0
         correct_predictions: int = 0
         for inputs, targets in data_loader:
-            inputs: Tensor = inputs.to(self.device, self.dtype)
-            targets: Tensor = targets.to(self.device, self.dtype if self.task == "regression" else torch.long)
+            inputs: Tensor = inputs.to(self.device, self.dtype, non_blocking=True)
+            targets: Tensor = targets.to(self.device, self.dtype if self.task == "regression" else torch.long, non_blocking=True)
 
             if optimizer is not None:
                 optimizer.zero_grad(set_to_none=True)
@@ -322,6 +323,9 @@ class Scaffold:
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)  # type: ignore
                 optimizer.step()
+
+            if scheduler is not None:
+                scheduler.step()
 
             cumulated_loss += loss.item() * inputs.shape[0]
             total_samples += inputs.shape[0]

@@ -51,8 +51,8 @@ def main() -> None:
         epochs=100,
         batch_size=256,
         lr=1e-3,
-        final_lr=1e-4,
-        early_stopping=True,
+        # max_lr=1e-2,
+        # early_stopping=True,
         data_loader_workers=4,
     )
 
