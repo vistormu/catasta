@@ -1,3 +1,3 @@
-from .scaffolds import Scaffold
-from .datasets import CatastaDataset
-from .archways import Archway
+from .scaffold import Scaffold
+from .dataset import CatastaDataset
+from .archway import Archway

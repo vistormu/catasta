@@ -1,6 +1,7 @@
 import platform
 import time
 import os
+import gc
 
 import numpy as np
 
@@ -15,7 +16,7 @@ from torch.distributions import Distribution
 from gpytorch.models.gp import GP
 from gpytorch.mlls import MarginalLogLikelihood
 
-from ..datasets import CatastaDataset
+from ..dataset import CatastaDataset
 from .utils import (
     get_optimizer,
     get_loss_function,
@@ -63,7 +64,7 @@ class Scaffold:
         loss_function : str | torch.nn.Module
             The loss function to be used for training. The user can either pass a string with the name of the loss function or a custom loss function. A list of available loss functions is in ~catasta.scaffolds.utils.available_loss_functions
         likelihood : str | torch.nn.Module, optional
-            The likelihood to be used for Gaussian Processes. If the user is training a GP model and the likelihood is not provided, the default Gaussian likelihood is used. One of: gaussian, bernoulli, laplace, softmax, studentt, beta. 
+            The likelihood to be used for Gaussian Processes. If the user is training a GP model and the likelihood is not provided, the default Gaussian likelihood is used. One of: gaussian, bernoulli, laplace, softmax, studentt, beta.
         device : str, optional
             The device to be used for training. One of "cpu", "cuda", or "auto". Defaults to "auto".
         verbose : bool, optional
@@ -153,6 +154,9 @@ class Scaffold:
             pin_memory=True if self.device.type == "cuda" else False,
         )
 
+        gc.collect()
+        torch.cuda.empty_cache()
+
         # TRAINING LOOP
         for epoch in range(epochs):
             start_time: float = time.time()
@@ -160,27 +164,21 @@ class Scaffold:
             # train
             self.model.train()
             self.likelihood.train()
-
             train_loss, train_accuracy = self._epoch(train_data_loader, optimizer, loss_function)
 
             # validation
             self.model.eval()
             self.likelihood.eval()
-
             with torch.no_grad():
                 val_loss, val_accuracy = self._epoch(val_data_loader, None, loss_function)
 
             scheduler.step()
-
-            torch.cuda.empty_cache() if self.device.type == "cuda" else None
 
             model_state_manager([self.model, self.likelihood], val_loss)
 
             if model_state_manager.stop:
                 self.logger.warning(f"early stopping at epoch {epoch + 1}")
                 break
-
-            time_per_epoch = time.time() - start_time
 
             training_logger.log(
                 train_loss=train_loss,
@@ -189,7 +187,7 @@ class Scaffold:
                 val_accuracy=val_accuracy,
                 lr=optimizer.param_groups[0]["lr"],
                 epoch=epoch + 1,
-                time_per_epoch=time_per_epoch,
+                time_per_epoch=time.time() - start_time,
             )
 
             Logger.plain(training_logger, color="green") if self.verbose else None
@@ -253,7 +251,7 @@ class Scaffold:
 
             self.logger.info(f"model saved to {model_path}")
 
-    @torch.no_grad()
+    @ torch.no_grad()
     def _evaluate_regression(self, dataset: Dataset) -> EvalInfo:
         x, y = next(iter(DataLoader(dataset, batch_size=len(dataset), shuffle=False)))  # type: ignore
 
@@ -278,7 +276,7 @@ class Scaffold:
             predicted_std=predicted_output_std,
         )
 
-    @torch.no_grad()
+    @ torch.no_grad()
     def _evaluate_classification(self, dataset: Dataset) -> EvalInfo:
         dataloader: DataLoader = DataLoader(dataset, batch_size=128, shuffle=False)
 
@@ -312,7 +310,7 @@ class Scaffold:
             targets: Tensor = targets.to(self.device, self.dtype if self.task == "regression" else torch.long)
 
             if optimizer is not None:
-                optimizer.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
 
             output = self.likelihood(self.model(inputs))
 

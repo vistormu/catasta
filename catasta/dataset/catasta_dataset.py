@@ -182,6 +182,9 @@ class RegressionSubset(Dataset):
         self.output_transformations: list[Transformation] = output_transformations
         self.inputs, self.outputs = self._get_data(input_name, output_name)
 
+        self.inputs = torch.tensor(self.inputs)
+        self.outputs = torch.tensor(self.outputs)
+
     def _get_data(self, input_name: str | list[str], output_name: str) -> tuple[np.ndarray, np.ndarray]:
         inputs: list[np.ndarray] = []
         outputs: list[np.ndarray] = []
@@ -213,7 +216,7 @@ class RegressionSubset(Dataset):
         return self.inputs.shape[0]
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        return torch.tensor(self.inputs[index]).view(-1), torch.tensor(self.outputs[index]).squeeze()
+        return self.inputs[index].view(-1), self.outputs[index].squeeze()
 
 
 EXTENSIONS = (".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp", ".csv")
