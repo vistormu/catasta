@@ -32,11 +32,11 @@ def scan_splits(root: str) -> tuple[str, str, str]:
 
     splits: list[str] = scan_classes(root)
     for split in splits:
-        if "train" in split:
+        if "train" in split.lower():
             train_dir_name = split
-        elif "val" in split:
+        elif "val" in split.lower():
             validation_dir_name = split
-        elif "test" in split:
+        elif "test" in split.lower():
             test_dir_name = split
 
     if not train_dir_name:
