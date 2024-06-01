@@ -23,6 +23,33 @@ class Foundation:
                  catch_exceptions: bool = False,
                  verbose: bool = True,
                  ) -> None:
+        """Initialize the Foundation class.
+
+        Arguments
+        ---------
+        hyperparameter_space : dict[str, tuple]
+            Dictionary containing the hyperparameters to optimize. The keys are the hyperparameter names and the values are tuples containing the hyperparameters search space.
+        objective_function : Callable[[dict], float]
+            Objective function to optimize. It receives a dictionary containing the hyperparameters as input and returns a float value.
+        sampler : str
+            Name of the sampler to use. Valid values are "random", "rs", "tpe", "gp", and "bogp".
+        n_trials : int
+            Number of trials to run.
+        direction : str
+            Direction of the optimization. Valid values are "minimize" and "maximize".
+        use_secretary : bool, optional
+            Whether to use the secretary algorithm. The secretary algorithm will reject the first n_trials/e trials and select the best trial after that. Default is False.
+        catch_exceptions : bool, optional
+            Whether to catch exceptions raised by the objective function. Default is False.
+        verbose : bool, optional
+            Whether to print optimization information. Default is True.
+
+        Raises
+        ------
+        ValueError
+            If the direction is invalid.
+            If the sampler is invalid.
+        """
         self.hyperparameter_space = hyperparameter_space
         self.objective_function = objective_function
         self.sampler = get_sampler(sampler)
@@ -32,6 +59,9 @@ class Foundation:
         self.catch_exceptions = catch_exceptions
 
         self.verbose = verbose
+
+        if direction not in ["minimize", "maximize"]:
+            raise ValueError("Invalid direction")
 
         self.logger = Logger("catasta", disable=not verbose)
         self._log_optimization_info()
@@ -44,15 +74,19 @@ class Foundation:
     -> sampler:         {self.sampler.__class__.__name__}
     -> direction:       {self.direction}""")
 
-    def _should_stop(self, metric: float | None, best_metric: float, trial_number: int) -> bool:
-        if metric is None:
-            return False
-
-        is_better = metric > best_metric if self.direction == "maximize" else metric < best_metric
-
-        return is_better and self.use_secretary and trial_number > np.round(self.n_trials/np.e)
-
     def optimize(self) -> OptimizationInfo:
+        """Optimize the hyperparameters.
+
+        Returns
+        -------
+        OptimizationInfo
+            Object containing the information about the optimization.
+
+        Raises
+        ------
+        Exception
+            If the objective function raises an exception and catch_exceptions is False.
+        """
         def optimize_optuna(trial: Trial) -> float:
             params = {name: trial.suggest_categorical(name, values) for name, values in self.hyperparameter_space.items()}
 
@@ -70,7 +104,7 @@ class Foundation:
         optimization_logger = OptimizationLogger(self.n_trials)
 
         def on_trial_complete(study: Study, trial: FrozenTrial) -> None:
-            if self._should_stop(trial.value, study.best_value, trial.number+1):
+            if self.use_secretary and trial.number > self.n_trials/np.e and study.best_trial.number == trial.number:
                 study.stop()
 
             optimization_logger.log(
