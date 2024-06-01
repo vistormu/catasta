@@ -7,9 +7,12 @@ from catasta.transformations import (
     Custom,
 )
 from catasta.dataclasses import EvalInfo
+from catasta.utils import set_deterministic
 
 
 def main() -> None:
+    set_deterministic()
+
     n_dim: int = 768
     dataset_root: str = "data/nylon_wire/"
     input_trasnsformations = [

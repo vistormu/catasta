@@ -91,8 +91,6 @@ class Scaffold:
         self.logger: Logger = Logger("catasta", disable=not verbose)
         self._log_training_info()
 
-        torch.backends.cudnn.benchmark = True
-
     def _log_training_info(self) -> None:
         n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
