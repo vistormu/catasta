@@ -13,6 +13,7 @@ def split_dataset(dataset: str,
                   task: str,
                   splits: tuple[float, float, float],
                   shuffle: bool,
+                  file_based_split: bool = False,
                   ) -> None:
     """ Split a dataset into training, validation, and testing sets.
 
@@ -28,14 +29,15 @@ def split_dataset(dataset: str,
         The split ratios for training, validation, and testing sets.
     shuffle : bool
         Whether to shuffle the dataset before splitting.
+    file_based_split : bool, optional
+        If set to True, the dataset will be split by dividing each file into the training, validation, and testing sets. If set to False, the dataset will be split by moving entire files into the training, validation, and testing sets (only valid for regression). Defaults to False.
 
     Raises
     ------
     ValueError
         If the splits do not sum to 1.0, if the training split is 0, or if both the validation and testing splits are 0.
         If the task is not supported.
-        If the task is classification and the dataset is not a directory.
-        If the task is regression and the dataset is not a file.
+        If the dataset is not a directory.
     """
     train_split: float = splits[0]
     val_split: float = splits[1]
@@ -47,7 +49,13 @@ def split_dataset(dataset: str,
     os.makedirs(os.path.join(destination, "validation"), exist_ok=True) if val_split else None
     os.makedirs(os.path.join(destination, "testing"), exist_ok=True) if test_split else None
 
-    split_function = _classification_split if task == "classification" else _regression_split
+    if task == "regression":
+        split_function = _file_based_regression_split if file_based_split else _dataset_based_regression_split
+    elif task == "classification":
+        split_function = _classification_split
+    else:
+        raise ValueError(f"Task {task} not supported")
+
     split_function(dataset, destination, shuffle, train_split, val_split, test_split)
 
 
@@ -65,44 +73,74 @@ def _check_arguments(dataset: str,
         raise ValueError("At least one of val split or test split must be greater than 0")
     if task not in ("classification", "regression"):
         raise ValueError(f"Task {task} not supported")
-    if task == "classification" and not os.path.isdir(dataset):
+    if not os.path.isdir(dataset):
         raise ValueError("Dataset must be a directory")
-    if task == "regression" and not os.path.isfile(dataset):
-        raise ValueError("Dataset must be a file")
 
 
-def _regression_split(dataset: str,
-                      destination: str,
-                      shuffle: bool,
-                      train_split: float,
-                      val_split: float,
-                      test_split: float,
-                      ) -> None:
-    df = pd.read_csv(dataset)
-    n_samples = len(df)
-    indices = list(range(n_samples))
+def _dataset_based_regression_split(dataset: str,
+                                    destination: str,
+                                    shuffle: bool,
+                                    train_split: float,
+                                    val_split: float,
+                                    test_split: float,
+                                    ) -> None:
+    files = os.listdir(dataset)
+    files = [file for file in files if file.lower().endswith(".csv")]
 
     if shuffle:
-        random.shuffle(indices)
+        random.shuffle(files)
 
-    train_index = int(train_split * n_samples)
-    val_index = train_index + int(val_split * n_samples)
-    test_index = val_index + int(test_split * n_samples)
+    n_files = len(files)
+    train_index = int(train_split * n_files)
+    val_index = train_index + int(val_split * n_files)
+    test_index = val_index + int(test_split * n_files)
 
-    train = df.iloc[indices[:train_index]]
-    val = df.iloc[indices[train_index:val_index]] if val_split else pd.DataFrame()
-    test = df.iloc[indices[val_index:test_index]] if test_split else pd.DataFrame()
+    train = files[:train_index]
+    val = files[train_index:val_index] if val_split else []
+    test = files[val_index:test_index] if test_split else []
 
-    filename = os.path.basename(dataset)
+    for file in train:
+        shutil.copyfile(os.path.join(dataset, file), os.path.join(destination, "training", file))
 
-    train_path = os.path.join(destination, "training", filename)
-    train.to_csv(train_path, index=False)
+    for file in val:
+        shutil.copyfile(os.path.join(dataset, file), os.path.join(destination, "validation", file))
 
-    val_path = os.path.join(destination, "validation", filename)
-    val.to_csv(val_path, index=False) if val_split else None
+    for file in test:
+        shutil.copyfile(os.path.join(dataset, file), os.path.join(destination, "testing", file))
 
-    test_path = os.path.join(destination, "testing", filename)
-    test.to_csv(test_path, index=False) if test_split else None
+
+def _file_based_regression_split(dataset: str,
+                                 destination: str,
+                                 shuffle: bool,
+                                 train_split: float,
+                                 val_split: float,
+                                 test_split: float,
+                                 ) -> None:
+    for file in os.listdir(dataset):
+        file_path = os.path.join(dataset, file)
+        df = pd.read_csv(file_path)
+        n_samples = len(df)
+        indices = list(range(n_samples))
+
+        if shuffle:
+            random.shuffle(indices)
+
+        train_index = int(train_split * n_samples)
+        val_index = train_index + int(val_split * n_samples)
+        test_index = val_index + int(test_split * n_samples)
+
+        train = df.iloc[indices[:train_index]]
+        val = df.iloc[indices[train_index:val_index]] if val_split else pd.DataFrame()
+        test = df.iloc[indices[val_index:test_index]] if test_split else pd.DataFrame()
+
+        train_path = os.path.join(destination, "training", file)
+        train.to_csv(train_path, index=False)
+
+        val_path = os.path.join(destination, "validation", file)
+        val.to_csv(val_path, index=False) if val_split else None
+
+        test_path = os.path.join(destination, "testing", file)
+        test.to_csv(test_path, index=False) if test_split else None
 
 
 def _classification_split(dataset: str,
@@ -113,10 +151,10 @@ def _classification_split(dataset: str,
                           test_split: float,
                           ) -> None:
     classes = os.listdir(dataset)
-    classes = [cls for cls in classes if os.path.isdir(os.path.join(dataset, cls))]
+    classes = [class_ for class_ in classes if os.path.isdir(os.path.join(dataset, class_))]
 
-    for cls in classes:
-        cls_path = os.path.join(dataset, cls)
+    for class_ in classes:
+        cls_path = os.path.join(dataset, class_)
         images = [os.path.join(cls_path, img) for img in os.listdir(cls_path)]
         images = [img for img in images if img.lower().endswith(EXTENSIONS)]
 
@@ -132,17 +170,17 @@ def _classification_split(dataset: str,
         val = images[train_index:val_index] if val_split else []
         test = images[val_index:test_index] if test_split else []
 
-        train_path = os.path.join(destination, "training", cls)
+        train_path = os.path.join(destination, "training", class_)
         for img in train:
             train_img = os.path.join(train_path, os.path.basename(img))
             shutil.copyfile(img, train_img)
 
-        val_path = os.path.join(destination, "validation", cls)
+        val_path = os.path.join(destination, "validation", class_)
         for img in val:
             val_img = os.path.join(val_path, os.path.basename(img))
             shutil.copyfile(img, val_img)
 
-        test_path = os.path.join(destination, "testing", cls)
+        test_path = os.path.join(destination, "testing", class_)
         for img in test:
             test_img = os.path.join(test_path, os.path.basename(img))
             shutil.copyfile(img, test_img)
