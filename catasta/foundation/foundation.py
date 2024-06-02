@@ -129,4 +129,8 @@ class Foundation:
 
         return OptimizationInfo(
             best_hyperparameters=study.best_params,
+            best_metric=study.best_value,
+            best_trial_number=study.best_trial.number+1,
+            time_elapsed=study.trials[-1].datetime_start.timestamp() - study.trials[0].datetime_start.timestamp(),  # type: ignore
+            trial_history=None,
         )
