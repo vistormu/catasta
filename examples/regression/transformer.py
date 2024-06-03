@@ -7,12 +7,9 @@ from catasta.transformations import (
     Custom,
 )
 from catasta.dataclasses import EvalInfo
-from catasta.utils import set_deterministic
 
 
 def main() -> None:
-    set_deterministic()
-
     n_dim: int = 768
     dataset_root: str = "data/nylon_wire/"
     input_trasnsformations = [
@@ -41,7 +38,9 @@ def main() -> None:
         n_layers=2,
         feedforward_dim=4,
         head_dim=4,
-        dropout=0.0,
+        dropout=0.2,
+        pooling="concat",
+        layer_norm=True,
     )
     scaffold = Scaffold(
         model=model,
@@ -54,9 +53,7 @@ def main() -> None:
         epochs=100,
         batch_size=256,
         lr=1e-3,
-        # max_lr=1e-2,
-        # early_stopping=True,
-        data_loader_workers=4,
+        data_loader_workers=0,
     )
 
     info: EvalInfo = scaffold.evaluate()

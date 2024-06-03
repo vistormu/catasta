@@ -50,8 +50,7 @@ def main() -> None:
         epochs=10,
         batch_size=256,
         lr=1e-3,
-        final_lr=1e-4,
-        early_stopping=True,
+        max_lr=1e-2,
     )
 
     info: EvalInfo = scaffold.evaluate()
