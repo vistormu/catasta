@@ -1,4 +1,5 @@
 from typing import Callable
+from datetime import datetime
 
 import numpy as np
 
@@ -8,7 +9,7 @@ from optuna.trial import FrozenTrial
 
 from vclog import Logger
 
-from ..dataclasses import OptimizationInfo
+from ..dataclasses import OptimizationInfo, TrialInfo
 from .utils import OptimizationLogger, get_sampler
 
 
@@ -127,10 +128,39 @@ class Foundation:
             callbacks=[on_trial_complete],
         )
 
+        first_datetime = datetime.now()
+        for trial in study.trials:
+            if trial.datetime_start is not None:
+                first_datetime = trial.datetime_start
+                break
+
+        last_datetime = datetime.now()
+        for trial in reversed(study.trials):
+            if trial.datetime_start is not None:
+                last_datetime = trial.datetime_start
+                break
+
+        history = []
+        for trial in study.trials:
+            metric = np.inf if self.direction == "minimize" else -np.inf
+            if trial.value is not None:
+                metric = trial.value
+
+            history.append(TrialInfo(
+                number=trial.number+1,
+                hyperparameters=trial.params,
+                metric=metric,
+                datetime_start=trial.datetime_start,
+                datetime_end=trial.datetime_complete,
+                duration=trial.duration.total_seconds(),
+            ))
+
         return OptimizationInfo(
             best_hyperparameters=study.best_params,
             best_metric=study.best_value,
             best_trial_number=study.best_trial.number+1,
-            time_elapsed=study.trials[-1].datetime_start.timestamp() - study.trials[0].datetime_start.timestamp(),  # type: ignore
-            trial_history=None,
+            datetime_start=first_datetime,
+            datetime_end=last_datetime,
+            duration=last_datetime.timestamp() - first_datetime.timestamp(),
+            history=history,
         )
