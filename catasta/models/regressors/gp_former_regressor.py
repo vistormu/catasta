@@ -1,3 +1,9 @@
+from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import Kernel, ScaleKernel, RBFKernel, MaternKernel, RQKernel, RFFKernel, PeriodicKernel, LinearKernel
+from gpytorch.means import ZeroMean, ConstantMean, Mean
+from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
+from gpytorch.models import ApproximateGP
+
 import torch
 from torch import Tensor
 from torch.nn import (
@@ -136,7 +142,7 @@ class Transformer(Module):
         return x
 
 
-class TransformerRegressor(Module):
+class TransformerFeatureExtractor(Module):
     def __init__(self, *,
                  context_length: int,
                  n_patches: int,
@@ -145,9 +151,9 @@ class TransformerRegressor(Module):
                  n_heads: int,
                  feedforward_dim: int,
                  head_dim: int,
-                 pooling: str = "mean",
-                 dropout: float = 0.0,
-                 layer_norm: bool = False,
+                 pooling: str,
+                 dropout: float,
+                 layer_norm: bool,
                  ) -> None:
         super().__init__()
         patch_size: int = context_length // n_patches
@@ -157,14 +163,13 @@ class TransformerRegressor(Module):
 
         self.to_patch_embedding = Sequential(
             Rearrange('b (n p) -> b n p', p=patch_size),
-            LayerNorm(patch_size) if layer_norm else Identity(),
             Linear(patch_size, d_model),
-            LayerNorm(d_model) if layer_norm else Identity(),
         )
 
         self.pos_embedding = posemb_sincos_1d
         self.dropout = Dropout(dropout)
-        self.pooling = pooling
+
+        self.pooling: str = pooling
 
         self.transformer = Transformer(
             d_model=d_model,
@@ -176,13 +181,6 @@ class TransformerRegressor(Module):
             layer_norm=layer_norm,
         )
 
-        linear_head_input_dim: int = d_model * n_patches if pooling == "concat" else d_model
-
-        self.linear_head = Sequential(
-            LayerNorm(linear_head_input_dim) if layer_norm else Identity(),
-            Linear(linear_head_input_dim, 1),
-        )
-
     def forward(self, x: Tensor) -> Tensor:
         x = self.to_patch_embedding(x)
         x += self.pos_embedding(x)
@@ -192,6 +190,83 @@ class TransformerRegressor(Module):
 
         x = reduce(x, 'b n d -> b d', self.pooling) if self.pooling != "concat" else rearrange(x, 'b n d -> b (n d)')
 
-        x = self.linear_head(x).squeeze()
-
         return x
+
+
+def _get_kernel(id: str, context_length: int, use_ard: bool) -> Kernel:
+    match id.lower():
+        case "rq":
+            return RQKernel(ard_num_dims=context_length if use_ard else None)
+        case "matern":
+            return MaternKernel(ard_num_dims=context_length if use_ard else None)
+        case "rbf":
+            return RBFKernel(ard_num_dims=context_length if use_ard else None)
+        case "rff":
+            return RFFKernel(num_samples=context_length)
+        case "periodic":
+            return PeriodicKernel(ard_num_dims=context_length if use_ard else None)
+        case "linear":
+            return LinearKernel(ard_num_dims=context_length if use_ard else None)
+        case _:
+            raise ValueError(f"Unknown kernel: {id}")
+
+
+def _get_mean_module(id: str) -> Mean:
+    match id.lower():
+        case "constant":
+            return ConstantMean()
+        case "zero":
+            return ZeroMean()
+        case _:
+            raise ValueError(f"Unknown mean: {id}")
+
+
+class GPFormerRegressor(ApproximateGP):
+    def __init__(self, *,
+                 n_inducing_points: int,
+                 context_length: int,
+                 n_patches: int,
+                 d_model: int,
+                 n_layers: int,
+                 n_heads: int,
+                 feedforward_dim: int,
+                 head_dim: int,
+                 dropout: float,
+                 layer_norm: bool = False,
+                 kernel: str = "rq",
+                 mean: str = "constant",
+                 pooling: str = "mean",
+                 use_ard: bool = True,
+                 ) -> None:
+
+        input_dim: int = d_model * n_patches if pooling == "concat" else d_model
+
+        inducing_points: torch.Tensor = torch.randn(n_inducing_points, context_length, dtype=torch.float32)
+
+        variational_distribution = CholeskyVariationalDistribution(n_inducing_points)
+        variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution)
+
+        super().__init__(variational_strategy)
+        self.mean_module = _get_mean_module(mean)
+        self.covar_module = ScaleKernel(_get_kernel(kernel, input_dim, use_ard))
+
+        self.feature_extractor = TransformerFeatureExtractor(
+            context_length=context_length,
+            n_patches=n_patches,
+            d_model=d_model,
+            n_layers=n_layers,
+            n_heads=n_heads,
+            feedforward_dim=feedforward_dim,
+            head_dim=head_dim,
+            pooling=pooling,
+            dropout=dropout,
+            layer_norm=layer_norm,
+        )
+
+    def forward(self, x: Tensor) -> MultivariateNormal:
+        x = self.feature_extractor(x)
+
+        mean_x: Tensor = self.mean_module(x)  # type: ignore
+        covar_x: Tensor = self.covar_module(x)  # type: ignore
+
+        return MultivariateNormal(mean_x, covar_x)
