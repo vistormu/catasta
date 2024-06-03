@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple
+from typing import NamedTuple, Sequence
 
 import pandas as pd
 import numpy as np
@@ -78,8 +78,8 @@ class CatastaDataset:
     def __init__(self,
                  root: str,
                  task: str,
-                 input_transformations: list[Transformation] = [],
-                 output_transformations: list[Transformation] = [],
+                 input_transformations: Sequence[Transformation] = [],
+                 output_transformations: Sequence[Transformation] = [],
                  input_name: str | list[str] = "input",
                  output_name: str = "output",
                  grayscale: bool = False,

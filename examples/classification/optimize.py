@@ -74,7 +74,7 @@ def main() -> None:
 
     optimization_info = foundation.optimize()
 
-    print(optimization_info.best_hyperparameters)
+    print(optimization_info)
 
 
 if __name__ == '__main__':
