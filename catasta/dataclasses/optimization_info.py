@@ -37,8 +37,8 @@ class OptimizationInfo(NamedTuple):
 
     def __repr__(self) -> str:
         msg = "BEST TRIAL\n"
-        msg += f"  -> trial:           {self.best_trial_number}\n"
-        msg += f"  -> metric:          {self.best_metric:.4f}\n"
+        msg += f"  -> trial: {self.best_trial_number}\n"
+        msg += f"  -> metric: {self.best_metric:.4f}\n"
         msg += f"  -> hyperparameters:\n"
         for key, value in self.best_hyperparameters.items():
             msg += f"    * {key}: {value}\n"
