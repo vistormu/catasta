@@ -5,6 +5,9 @@ from .regressors.transformer_regressor import TransformerRegressor
 from .regressors.transformer_fft_regressor import TransformerFFTRegressor
 from .regressors.mamba_regressor import MambaRegressor
 from .regressors.mamba_fft_regressor import MambaFFTRegressor
+from .regressors.patch_gp_regressor import PatchGPRegressor
+from .regressors.patch_gp_fft_regressor import PatchGPFFTRegressor
+from .regressors.gp_former_regressor import GPFormerRegressor
 
 # classifiers
 from .classifiers.feedforward_classifier import FeedforwardClassifier

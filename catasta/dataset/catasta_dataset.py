@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple
+from typing import NamedTuple, Sequence
 
 import pandas as pd
 import numpy as np
@@ -32,11 +32,11 @@ def scan_splits(root: str) -> tuple[str, str, str]:
 
     splits: list[str] = scan_classes(root)
     for split in splits:
-        if "train" in split:
+        if "train" in split.lower():
             train_dir_name = split
-        elif "val" in split:
+        elif "val" in split.lower():
             validation_dir_name = split
-        elif "test" in split:
+        elif "test" in split.lower():
             test_dir_name = split
 
     if not train_dir_name:
@@ -44,10 +44,10 @@ def scan_splits(root: str) -> tuple[str, str, str]:
     elif not validation_dir_name and not test_dir_name:
         raise ValueError(f"at least a validation or test split must be present in {root}")
     elif not validation_dir_name and test_dir_name:
-        Logger("catasta").warning(f"no validation split found in {root}. Using test split as validation split.")
+        # Logger("catasta").warning(f"no validation split found in {root}. Using test split as validation split.")
         validation_dir_name = test_dir_name
     elif not test_dir_name and validation_dir_name:
-        Logger("catasta").warning(f"no test split found in {root}. Using validation split as test split.")
+        # Logger("catasta").warning(f"no test split found in {root}. Using validation split as test split.")
         test_dir_name = validation_dir_name
 
     return train_dir_name, validation_dir_name, test_dir_name
@@ -78,8 +78,8 @@ class CatastaDataset:
     def __init__(self,
                  root: str,
                  task: str,
-                 input_transformations: list[Transformation] = [],
-                 output_transformations: list[Transformation] = [],
+                 input_transformations: Sequence[Transformation] = [],
+                 output_transformations: Sequence[Transformation] = [],
                  input_name: str | list[str] = "input",
                  output_name: str = "output",
                  grayscale: bool = False,
@@ -182,6 +182,9 @@ class RegressionSubset(Dataset):
         self.output_transformations: list[Transformation] = output_transformations
         self.inputs, self.outputs = self._get_data(input_name, output_name)
 
+        self.inputs = torch.tensor(self.inputs)
+        self.outputs = torch.tensor(self.outputs)
+
     def _get_data(self, input_name: str | list[str], output_name: str) -> tuple[np.ndarray, np.ndarray]:
         inputs: list[np.ndarray] = []
         outputs: list[np.ndarray] = []
@@ -213,7 +216,7 @@ class RegressionSubset(Dataset):
         return self.inputs.shape[0]
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        return torch.tensor(self.inputs[index]).view(-1), torch.tensor(self.outputs[index]).squeeze()
+        return self.inputs[index].view(-1), self.outputs[index].squeeze()
 
 
 EXTENSIONS = (".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp", ".csv")

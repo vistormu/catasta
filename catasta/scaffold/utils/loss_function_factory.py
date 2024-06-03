@@ -23,27 +23,7 @@ from gpytorch.mlls import (
     VariationalMarginalLogLikelihood,
     GammaRobustVariationalELBO,
 )
-
-available_loss_functions = sorted([
-    "mse",
-    "l1",
-    "smooth_l1",
-    "huber",
-    "poisson",
-    "kl_div",
-    "cross_entropy",
-    "nll",
-    "bce",
-    "bce_with_logits",
-    "margin_ranking",
-    "hinge_embedding",
-    "multi_label_margin",
-    "multi_label_soft_margin",
-    "variational_elbo",
-    "predictive_log",
-    "variational_marginal_log",
-    "gamma_robust_variational_elbo",
-])
+from gpytorch.models.gp import GP
 
 loss_functions: dict[str, _Loss] = {
     "mse": MSELoss(),
@@ -68,6 +48,9 @@ def get_loss_function(id: str | Module, model: Module, likelihood: Module, num_d
         return id
 
     loss_function: _Loss | None = loss_functions.get(id.lower(), None)
+    if loss_function is not None and isinstance(model, GP):
+        raise ValueError(f"loss function '{id}' is not compatible with GP models")
+
     if loss_function is None:
         match id.lower():
             case "variational_elbo":

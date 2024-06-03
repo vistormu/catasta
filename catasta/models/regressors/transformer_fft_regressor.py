@@ -13,7 +13,7 @@ from torch.nn import (
 )
 from torch.fft import fft
 
-from einops import rearrange
+from einops import rearrange, reduce
 from einops.layers.torch import Rearrange
 
 
@@ -147,6 +147,7 @@ class TransformerFFTRegressor(Module):
                  feedforward_dim: int,
                  head_dim: int,
                  dropout: float = 0.0,
+                 pooling: str = "mean",
                  layer_norm: bool = False,
                  ) -> None:
         super().__init__()
@@ -173,6 +174,8 @@ class TransformerFFTRegressor(Module):
         self.pos_embedding = posemb_sincos_1d
         self.dropout = Dropout(dropout)
 
+        self.pooling = pooling
+
         self.transformer = Transformer(
             d_model=d_model,
             n_layers=n_layers,
@@ -183,9 +186,11 @@ class TransformerFFTRegressor(Module):
             layer_norm=layer_norm,
         )
 
+        linear_head_input_dim: int = d_model * n_patches if pooling == "concat" else d_model
+
         self.linear_head = Sequential(
-            LayerNorm(d_model) if layer_norm else Identity(),
-            Linear(d_model, 1),
+            LayerNorm(linear_head_input_dim) if layer_norm else Identity(),
+            Linear(linear_head_input_dim, 1),
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -200,7 +205,9 @@ class TransformerFFTRegressor(Module):
         x = torch.cat((x, f), dim=1)
 
         x = self.transformer(x)
-        x = x.mean(dim=1)
+        x = self.dropout(x)
+
+        x = reduce(x, 'b n d -> b d', self.pooling) if self.pooling != "concat" else rearrange(x, 'b n d -> b (n d)')
 
         x = self.linear_head(x).squeeze()
 

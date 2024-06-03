@@ -37,7 +37,7 @@ def main() -> None:
         epochs=100,
         batch_size=128,
         lr=1e-3,
-        early_stopping=True,
+        early_stopping_alpha=0.95,
     )
 
     eval_info = scaffold.evaluate()

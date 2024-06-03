@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 
 from catasta import Scaffold, CatastaDataset, Archway
 from catasta.models import ApproximateGPRegressor
-from catasta.scaffolds import Scaffold
 from catasta.dataclasses import PredictionInfo, TrainInfo
 
 
@@ -32,7 +31,7 @@ def main() -> None:
         epochs=5000,
         batch_size=128,
         lr=1e-3,
-        early_stopping=True,
+        early_stopping_alpha=0.95,
     )
     print(f"min train loss: {train_info.best_train_loss:.4f}")
 
