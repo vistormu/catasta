@@ -275,27 +275,53 @@ class Scaffold:
         """Save the model to a file.
 
         Arguments
-        - --------
-        path: str
-            The directory to save the model to.
+        ---------
+        path : str
+            The path where to save the model. If the path is a directory, the model is saved as the model class name in the directory. If the path ends with `.onnx`, the model is saved in ONNX format.
 
         Raises
-        - -----
+        ------
         ValueError
-            If the path is a file path.
+            If the path is not a directory, a `.pt` or `.onnx` file.
         """
-        if "." in path:
-            raise ValueError("save path must be a directory")
 
-        model_device: torch.device = torch.device("cpu")
+        if not os.path.exists(path):
+            os.makedirs(path)
+            print(
+                f"{ansi.BOLD}{ansi.YELLOW}-> specified path does not exist{ansi.RESET}\n"
+                f"   |> created directory: {path}"
+            )
 
-        save_path: str = os.path.join(path, self.model.__class__.__name__)
+        self.model.to("cpu")
+        self.model.eval()
 
-        os.makedirs(save_path, exist_ok=True)
+        if path.endswith(".pt") or path.endswith(".pth"):
+            torch.save(self.model, path)
 
-        self.model.to(model_device)
+        elif os.path.isdir(path):
+            torch.save(self.model, os.path.join(path, f"{self.model.__class__.__name__}.pt"))
 
-        model_path: str = os.path.join(save_path, f"{self.model.__class__.__name__}.pt")
-        torch.save(self.model, model_path)
+        elif path.endswith(".onnx"):
+            model_input = self.dataset.train[0][0].unsqueeze(0).to("cpu")
+            dummy_input = torch.randn(1, *model_input.shape[1:], dtype=model_input.dtype)
+            torch.onnx.export(
+                self.model,
+                dummy_input,  # type: ignore
+                path,
+                export_params=True,
+                opset_version=11,
+                do_constant_folding=True,
+                input_names=["input"],
+                output_names=["output"],
+                dynamic_axes={
+                    "input": {0: "batch_size"},
+                    "output": {0: "batch_size"}
+                }
+            )
+        else:
+            raise ValueError("Invalid path. Must be a directory, a `.pt` or `.onnx` file.")
 
-        # self.logger.info(f"model saved to {model_path}")
+        print(
+            f"{ansi.BOLD}{ansi.GREEN}-> model saved{ansi.RESET}\n"
+            f"   |> path: {path}"
+        )
