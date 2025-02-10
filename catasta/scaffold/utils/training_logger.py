@@ -25,10 +25,7 @@ class TrainingLogger:
         self.epochs: int = epochs
 
         self.train_losses: list[float] = []
-        self.train_accuracies: list[float] = []
-
         self.val_losses: list[float] = []
-        self.val_accuracies: list[float] = []
 
         self.lr_values: list[float] = []
 
@@ -37,19 +34,13 @@ class TrainingLogger:
 
     def log(self,
             train_loss: float,
-            train_accuracy: float,
             val_loss: float,
-            val_accuracy: float,
             lr: float,
             epoch: int,
             time_per_epoch: float,
             ) -> None:
         self.train_losses.append(train_loss)
-        self.train_accuracies.append(train_accuracy) if self.task == "classification" else None
-
         self.val_losses.append(val_loss)
-        self.val_accuracies.append(val_accuracy) if self.task == "classification" else None
-
         self.lr_values.append(lr)
 
         self.avg_time_per_epoch = (self.avg_time_per_epoch * (epoch - 1) + time_per_epoch) / epoch
@@ -57,13 +48,9 @@ class TrainingLogger:
     def get_info(self) -> TrainInfo:
         return TrainInfo(
             train_losses=np.array(self.train_losses),
-            train_accuracies=np.array(self.train_accuracies) if self.task == "classification" else np.array([]),
             best_train_loss=np.min(self.train_losses),
-            best_train_accuracy=np.max(self.train_accuracies) if self.task == "classification" else -np.inf,
             val_losses=np.array(self.val_losses),
-            val_accuracies=np.array(self.val_accuracies) if self.task == "classification" else np.array([]),
             best_val_loss=np.min(self.val_losses),
-            best_val_accuracy=np.max(self.val_accuracies) if self.task == "classification" else -np.inf,
             lr_values=np.array(self.lr_values),
         )
 

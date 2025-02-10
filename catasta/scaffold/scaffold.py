@@ -160,13 +160,13 @@ class Scaffold:
                 # train
                 self.model.train()
                 self.likelihood.train()
-                train_loss, train_accuracy = self._epoch(train_data_loader, loss_function, optimizer)
+                train_loss = self._epoch(train_data_loader, loss_function, optimizer)
 
                 # validation
                 self.model.eval()
                 self.likelihood.eval()
                 with torch.no_grad():
-                    val_loss, val_accuracy = self._epoch(val_data_loader, loss_function, None)
+                    val_loss = self._epoch(val_data_loader, loss_function, None)
 
                 model_state_manager([self.model, self.likelihood], val_loss)
 
@@ -179,9 +179,7 @@ class Scaffold:
 
                 training_logger.log(
                     train_loss=train_loss,
-                    train_accuracy=train_accuracy,
                     val_loss=val_loss,
-                    val_accuracy=val_accuracy,
                     lr=optimizer.param_groups[0]["lr"],
                     epoch=epoch + 1,
                     time_per_epoch=time.time() - start_time,
@@ -202,6 +200,39 @@ class Scaffold:
         model_state_manager.load_best_model_state([self.model, self.likelihood])
 
         return train_info
+
+    def _epoch(self,
+               data_loader: DataLoader,
+               loss_function: Module,
+               optimizer: Optimizer | None,
+               ) -> float:
+        cumulated_loss: Tensor = torch.tensor(0.0, device=self.device)
+        total_samples: int = 0
+
+        for inputs, targets in data_loader:
+            inputs = inputs.to(self.device, self.dtype, non_blocking=True)
+            targets = targets.to(self.device, self.dtype if self.task == "regression" else torch.long, non_blocking=True)
+
+            if optimizer is not None:
+                optimizer.zero_grad(set_to_none=True)
+
+            output = self.likelihood(self.model(inputs))
+
+            loss: Tensor = loss_function(output, targets)  # type: ignore
+            if isinstance(loss_function, MarginalLogLikelihood):
+                loss = -loss
+
+            if optimizer is not None:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)  # type: ignore
+                optimizer.step()
+
+            cumulated_loss += loss.detach() * inputs.shape[0]
+            total_samples += inputs.shape[0]
+
+        epoch_loss = cumulated_loss / total_samples if total_samples > 0 else torch.tensor(0.0, device=self.device)
+
+        return epoch_loss.item()
 
     def evaluate(self) -> EvalInfo:
         """Evaluate the model on the test set of the dataset.
@@ -300,40 +331,3 @@ class Scaffold:
             true_output=np.concatenate(true_labels),
             predicted_output=np.concatenate(predicted_labels),
         )
-
-    def _epoch(self,
-               data_loader: DataLoader,
-               loss_function: Module,
-               optimizer: Optimizer | None,
-               ) -> tuple[float, float]:
-        cumulated_loss: float = 0.0
-        total_samples: int = 0
-        correct_predictions: int = 0
-        for inputs, targets in data_loader:
-            inputs: Tensor = inputs.to(self.device, self.dtype, non_blocking=True)
-            targets: Tensor = targets.to(self.device, self.dtype if self.task == "regression" else torch.long, non_blocking=True)
-
-            if optimizer is not None:
-                optimizer.zero_grad(set_to_none=True)
-
-            output = self.likelihood(self.model(inputs))
-
-            loss: Tensor = loss_function(output, targets)  # type: ignore
-            if isinstance(loss_function, MarginalLogLikelihood):
-                loss = -loss
-
-            if optimizer is not None:
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)  # type: ignore
-                optimizer.step()
-
-            cumulated_loss += loss.item() * inputs.shape[0]
-            total_samples += inputs.shape[0]
-
-            if self.task == "classification":
-                correct_predictions += (output.argmax(dim=1) == targets).sum().item()  # type: ignore
-
-        epoch_loss = cumulated_loss / total_samples
-        epoch_accuracy = correct_predictions / total_samples if self.task == "classification" else -np.inf
-
-        return epoch_loss, epoch_accuracy
