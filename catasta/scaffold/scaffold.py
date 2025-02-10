@@ -25,8 +25,7 @@ from .utils import (
     TrainingLogger,
 )
 from ..dataclasses import TrainInfo, EvalInfo
-
-from vclog import Logger
+from ..log import ansi
 
 
 def _get_device(device: str) -> torch.device:
@@ -88,18 +87,20 @@ class Scaffold:
         self.optimizer_id: str | Optimizer = optimizer
         self.loss_function_id: str | Module = loss_function
 
-        self.logger: Logger = Logger("catasta", disable=not verbose)
-        self._log_training_info()
+        # log training info
+        if not self.verbose:
+            return
 
-    def _log_training_info(self) -> None:
         n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
         n_samples: int = len(self.dataset.train)  # type: ignore
-        self.logger.info(f"""   TRAINING INFO
-    -> task:     {self.task}
-    -> dataset:  {self.dataset.root} ({n_samples} samples)
-    -> model:    {self.model.__class__.__name__} ({n_params} trainable parameters)
-    -> device:   {self.device} ({device_name})""")
+        print(
+            f"{ansi.BOLD}{ansi.GREEN}-> training info\n{ansi.RESET}"
+            f"   |> task:    {self.task}\n"
+            f"   |> dataset: {self.dataset.root} ({n_samples} samples)\n"
+            f"   |> model:   {self.model.__class__.__name__} ({n_params} parameters)\n"
+            f"   |> device:  {self.device} ({device_name})"
+        )
 
     def train(self, *,
               epochs: int,
@@ -113,20 +114,20 @@ class Scaffold:
         """Train the model on the dataset.
 
         Arguments
-        ---------
-        epochs : int
+        - --------
+        epochs: int
             The number of epochs to train the model.
-        batch_size : int
+        batch_size: int
             The batch size to use for training.
-        lr : float
+        lr: float
             The initial learning rate.
-        max_lr : float, optional
+        max_lr: float, optional
             The maximum learning rate to use for the OneCycleLR scheduler. If not provided, the learning rate will not decay. Defaults to None.
-        early_stopping_alpha : bool, optional
+        early_stopping_alpha: bool, optional
             The smoothing factor for the early stopping criterion. If set to a value, the training will stop when the validation loss curve starts increasing. A good smoothing factor ranges in [0.95, 1). Defaults to None.
-        shuffle : bool, optional
-            Whether to shuffle the training data or not. Defaults to True.
-        data_loader_workers : int, optional
+        shuffle: bool, optional
+            Whether to shuffle the training data or not . Defaults to True.
+        data_loader_workers: int, optional
             The number of workers to use for the data loader. Defaults to 0. Tip: set to 4 times the number of GPUs.
         """
         # VARIABLES
@@ -175,7 +176,10 @@ class Scaffold:
             model_state_manager([self.model, self.likelihood], val_loss)
 
             if model_state_manager.stop:
-                self.logger.warning(f"early stopping at epoch {epoch + 1}")
+                print(
+                    f"\n{ansi.BOLD}{ansi.YELLOW}-> early stopping{ansi.RESET}\n"
+                    f"   |> epoch: {epoch + 1}"
+                )
                 break
 
             training_logger.log(
@@ -188,7 +192,7 @@ class Scaffold:
                 time_per_epoch=time.time() - start_time,
             )
 
-            Logger.plain(training_logger, color="green") if self.verbose else None
+            print(training_logger) if self.verbose else None
 
         # END OF TRAINING
         train_info = training_logger.get_info()
@@ -201,7 +205,7 @@ class Scaffold:
         """Evaluate the model on the test set of the dataset.
 
         Returns
-        -------
+        - ------
         ~catasta.dataclasses.EvalInfo
             The evaluation information.
         """
@@ -219,12 +223,12 @@ class Scaffold:
         """Save the model to a file.
 
         Arguments
-        ---------
-        path : str
+        - --------
+        path: str
             The directory to save the model to.
 
         Raises
-        ------
+        - -----
         ValueError
             If the path is a file path.
         """
@@ -249,7 +253,7 @@ class Scaffold:
 
             self.logger.info(f"model saved to {model_path}")
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def _evaluate_regression(self, dataset: Dataset) -> EvalInfo:
         x, y = next(iter(DataLoader(dataset, batch_size=len(dataset), shuffle=False)))  # type: ignore
 
@@ -274,7 +278,7 @@ class Scaffold:
             predicted_std=predicted_output_std,
         )
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def _evaluate_classification(self, dataset: Dataset) -> EvalInfo:
         dataloader: DataLoader = DataLoader(dataset, batch_size=128, shuffle=False)
 

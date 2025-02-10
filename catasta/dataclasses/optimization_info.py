@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 
 from .trial_info import TrialInfo
+from ..log import ansi
 
 
 class OptimizationInfo(NamedTuple):
@@ -36,14 +37,14 @@ class OptimizationInfo(NamedTuple):
     history: list[TrialInfo]
 
     def __repr__(self) -> str:
-        msg = "BEST TRIAL\n"
-        msg += f"  -> trial: {self.best_trial_number}\n"
-        msg += f"  -> metric: {self.best_metric:.4f}\n"
-        msg += f"  -> hyperparameters:\n"
+        msg = f"\n{ansi.BOLD}{ansi.BLUE}-> optimization results{ansi.RESET}\n"
+        msg += f"   |> trial: {self.best_trial_number}\n"
+        msg += f"   |> metric: {self.best_metric:.4f}\n"
+        msg += f"   |> hyperparameters:\n"
         for key, value in self.best_hyperparameters.items():
-            msg += f"    * {key}: {value}\n"
+            msg += f"      * {key}: {value}\n"
 
-        return msg
+        return msg.rstrip()
 
     def to_pandas(self) -> pd.DataFrame:
         """Convert the OptimizationInfo to a pandas DataFrame.

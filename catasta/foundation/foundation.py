@@ -7,10 +7,9 @@ import optuna
 from optuna import Trial, Study
 from optuna.trial import FrozenTrial
 
-from vclog import Logger
-
 from ..dataclasses import OptimizationInfo, TrialInfo
 from .utils import OptimizationLogger, get_sampler
+from ..log import ansi
 
 
 class Foundation:
@@ -64,16 +63,18 @@ class Foundation:
         if direction not in ["minimize", "maximize"]:
             raise ValueError("Invalid direction")
 
-        self.logger = Logger("catasta", disable=not verbose)
-        self._log_optimization_info()
+        if not self.verbose:
+            return
 
-    def _log_optimization_info(self) -> None:
+        # log optimization info
         n_hyperparameters = len(self.hyperparameter_space)
         n_combinations = np.prod([len(values) for values in self.hyperparameter_space.values()])
-        self.logger.info(f"""    OPTIMIZATION INFO
-    -> hyperparameters: {n_hyperparameters} ({n_combinations} combinations)
-    -> sampler:         {self.sampler.__class__.__name__}
-    -> direction:       {self.direction}""")
+        print(
+            f"{ansi.BOLD}{ansi.GREEN}-> optimization info{ansi.RESET}\n"
+            f"   |> hyperparameters: {n_hyperparameters} ({n_combinations} combinations)\n"
+            f"   |> sampler:         {self.sampler.__class__.__name__}\n"
+            f"   |> direction:       {self.direction}"
+        )
 
     def optimize(self) -> OptimizationInfo:
         """Optimize the hyperparameters.
@@ -95,7 +96,11 @@ class Foundation:
                 metric = self.objective_function(params)
             except Exception as e:
                 if self.catch_exceptions:
-                    self.logger.error(e)
+                    print(
+                        f"{ansi.BOLD}{ansi.RED}-> exception caught\n"
+                        f"   |> trial: {trial.number+1}\n"
+                        f"   |> error: {e}{ansi.RESET}"
+                    )
                     metric = np.inf if self.direction == "minimize" else -np.inf
                 else:
                     raise e
@@ -116,7 +121,7 @@ class Foundation:
                 time_elapsed=trial.duration.total_seconds() if trial.duration is not None else 0.0,  # TMP
             )
 
-            Logger.plain(optimization_logger, color="green") if self.verbose else None
+            print(optimization_logger) if self.verbose else None
 
         study = optuna.create_study(
             sampler=self.sampler,

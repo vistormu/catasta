@@ -1,5 +1,7 @@
 import numpy as np
 
+from ..log import ansi
+
 
 class EvalInfo:
     """A class that calculates and stores evaluation metrics for regression and classification tasks.
@@ -115,22 +117,20 @@ class EvalInfo:
         return matrix
 
     def _regression_repr(self) -> str:
-        mae: str = f'MAE: {self.mae:.4f}\n'
-        mse: str = f'MSE: {self.mse:.4f}\n'
-        rmse: str = f'RMSE: {self.rmse:.4f}\n'
-        r2: str = f'R2: {self.r2:.4f}'
-
-        return mae + mse + rmse + r2
+        return f"\n{ansi.BOLD}{ansi.BLUE}-> regression metrics{ansi.RESET}\n" + \
+            f"   |> MAE:  {self.mae:.4f}\n" + \
+            f"   |> MSE:  {self.mse:.4f}\n" + \
+            f"   |> RMSE: {self.rmse:.4f}\n" + \
+            f"   |> R2:   {self.r2:.4f}"
 
     def _classification_repr(self) -> str:
-        accuracy: str = f'Accuracy: {self.accuracy:.4f}\n'
-        precision: str = f'Precision: {self.precision:.4f}\n'
-        recall: str = f'Recall: {self.recall:.4f}\n'
-        sensitivity: str = f'Sensitivity: {self.sensitivity:.4f}\n'
-        specificity: str = f'Specificity: {self.specificity:.4f}\n'
-        f1_score: str = f'F1 Score: {self.f1_score:.4f}'
-
-        return accuracy + precision + recall + sensitivity + specificity + f1_score
+        return f"\n{ansi.BOLD}{ansi.BLUE}-> classification metrics{ansi.RESET}\n" + \
+            f"   |> accuracy:    {self.accuracy:.4f}\n" + \
+            f"   |> precision:   {self.precision:.4f}\n" + \
+            f"   |> recall:      {self.recall:.4f}\n" + \
+            f"   |> sensitivity: {self.sensitivity:.4f}\n" + \
+            f"   |> specificity: {self.specificity:.4f}\n" + \
+            f"   |> f1 score:    {self.f1_score:.4f}"
 
     def __repr__(self) -> str:
         if self.task == 'regression':

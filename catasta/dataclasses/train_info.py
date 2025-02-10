@@ -1,6 +1,8 @@
 from typing import NamedTuple
 import numpy as np
 
+from ..log import ansi
+
 
 class TrainInfo(NamedTuple):
     """NamedTuple for storing training information.
@@ -37,3 +39,10 @@ class TrainInfo(NamedTuple):
     best_val_accuracy: float
 
     lr_values: np.ndarray
+
+    def __repr__(self) -> str:
+        return f"\n{ansi.BOLD}{ansi.BLUE}-> training results{ansi.RESET}\n" \
+            f"   |> best train loss: {self.best_train_loss:.4f}\n" \
+            f"   |> best val loss: {self.best_val_loss:.4f}\n" \
+            f"   |> best train accuracy: {self.best_train_accuracy:.4f}\n" \
+            f"   |> best val accuracy: {self.best_val_accuracy:.4f}"
