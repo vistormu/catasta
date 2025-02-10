@@ -9,7 +9,6 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Identity
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import OneCycleLR
 from torch.utils.data import DataLoader, Dataset
 from torch.distributions import Distribution
 
@@ -106,7 +105,6 @@ class Scaffold:
               epochs: int,
               batch_size: int,
               lr: float,
-              max_lr: float | None = None,
               early_stopping_alpha: float | None = None,
               shuffle: bool = True,
               data_loader_workers: int = 0,
@@ -121,8 +119,6 @@ class Scaffold:
             The batch size to use for training.
         lr: float
             The initial learning rate.
-        max_lr: float, optional
-            The maximum learning rate to use for the OneCycleLR scheduler. If not provided, the learning rate will not decay. Defaults to None.
         early_stopping_alpha: bool, optional
             The smoothing factor for the early stopping criterion. If set to a value, the training will stop when the validation loss curve starts increasing. A good smoothing factor ranges in [0.95, 1). Defaults to None.
         shuffle: bool, optional
@@ -153,8 +149,6 @@ class Scaffold:
             pin_memory=True if self.device.type == "cuda" else False,
         )
 
-        scheduler: OneCycleLR | None = OneCycleLR(optimizer, max_lr=max_lr, epochs=epochs, steps_per_epoch=len(train_data_loader)) if max_lr else None
-
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -166,13 +160,13 @@ class Scaffold:
                 # train
                 self.model.train()
                 self.likelihood.train()
-                train_loss, train_accuracy = self._epoch(train_data_loader, loss_function, optimizer, scheduler)
+                train_loss, train_accuracy = self._epoch(train_data_loader, loss_function, optimizer)
 
                 # validation
                 self.model.eval()
                 self.likelihood.eval()
                 with torch.no_grad():
-                    val_loss, val_accuracy = self._epoch(val_data_loader, loss_function, None, None)
+                    val_loss, val_accuracy = self._epoch(val_data_loader, loss_function, None)
 
                 model_state_manager([self.model, self.likelihood], val_loss)
 
@@ -311,7 +305,6 @@ class Scaffold:
                data_loader: DataLoader,
                loss_function: Module,
                optimizer: Optimizer | None,
-               scheduler: OneCycleLR | None,
                ) -> tuple[float, float]:
         cumulated_loss: float = 0.0
         total_samples: int = 0
@@ -333,9 +326,6 @@ class Scaffold:
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)  # type: ignore
                 optimizer.step()
-
-            if scheduler is not None:
-                scheduler.step()
 
             cumulated_loss += loss.item() * inputs.shape[0]
             total_samples += inputs.shape[0]
