@@ -160,39 +160,47 @@ class Scaffold:
 
         # TRAINING LOOP
         for epoch in range(epochs):
-            start_time: float = time.time()
+            try:
+                start_time: float = time.time()
 
-            # train
-            self.model.train()
-            self.likelihood.train()
-            train_loss, train_accuracy = self._epoch(train_data_loader, loss_function, optimizer, scheduler)
+                # train
+                self.model.train()
+                self.likelihood.train()
+                train_loss, train_accuracy = self._epoch(train_data_loader, loss_function, optimizer, scheduler)
 
-            # validation
-            self.model.eval()
-            self.likelihood.eval()
-            with torch.no_grad():
-                val_loss, val_accuracy = self._epoch(val_data_loader, loss_function, None, None)
+                # validation
+                self.model.eval()
+                self.likelihood.eval()
+                with torch.no_grad():
+                    val_loss, val_accuracy = self._epoch(val_data_loader, loss_function, None, None)
 
-            model_state_manager([self.model, self.likelihood], val_loss)
+                model_state_manager([self.model, self.likelihood], val_loss)
 
-            if model_state_manager.stop:
+                if model_state_manager.stop:
+                    print(
+                        f"\n{ansi.BOLD}{ansi.YELLOW}-> early stopping{ansi.RESET}\n"
+                        f"   |> epoch: {epoch + 1}"
+                    )
+                    break
+
+                training_logger.log(
+                    train_loss=train_loss,
+                    train_accuracy=train_accuracy,
+                    val_loss=val_loss,
+                    val_accuracy=val_accuracy,
+                    lr=optimizer.param_groups[0]["lr"],
+                    epoch=epoch + 1,
+                    time_per_epoch=time.time() - start_time,
+                )
+
+                print(training_logger) if self.verbose else None
+
+            except KeyboardInterrupt:
                 print(
-                    f"\n{ansi.BOLD}{ansi.YELLOW}-> early stopping{ansi.RESET}\n"
+                    f"\n{ansi.BOLD}{ansi.YELLOW}-> training interrupted{ansi.RESET}\n"
                     f"   |> epoch: {epoch + 1}"
                 )
                 break
-
-            training_logger.log(
-                train_loss=train_loss,
-                train_accuracy=train_accuracy,
-                val_loss=val_loss,
-                val_accuracy=val_accuracy,
-                lr=optimizer.param_groups[0]["lr"],
-                epoch=epoch + 1,
-                time_per_epoch=time.time() - start_time,
-            )
-
-            print(training_logger) if self.verbose else None
 
         # END OF TRAINING
         train_info = training_logger.get_info()

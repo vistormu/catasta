@@ -95,6 +95,13 @@ class Foundation:
             try:
                 metric = self.objective_function(params)
             except Exception as e:
+                if isinstance(e, KeyboardInterrupt):
+                    print(
+                        f"{ansi.BOLD}{ansi.YELLOW}-> optimization interrupted\n"
+                        f"   |> trial: {trial.number+1}{ansi.RESET}"
+                    )
+                    raise e
+
                 if self.catch_exceptions:
                     print(
                         f"{ansi.BOLD}{ansi.RED}-> exception caught\n"
