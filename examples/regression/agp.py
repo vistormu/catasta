@@ -33,7 +33,7 @@ def main() -> None:
         lr=1e-3,
         early_stopping_alpha=0.95,
     )
-    print(f"min train loss: {train_info.best_train_loss:.4f}")
+    # print(f"min train loss: {train_info.best_train_loss:.4f}")
 
     info = scaffold.evaluate()
     print(info)
