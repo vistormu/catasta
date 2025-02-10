@@ -8,9 +8,8 @@ from torch import Tensor
 from torch.nn import Identity
 from torch.distributions import Distribution
 
-from vclog import Logger
-
 from ..dataclasses import PredictionInfo
+from ..log import ansi
 
 
 def _get_device(device: str) -> torch.device:
@@ -70,10 +69,18 @@ class Archway:
         self.device: torch.device = _get_device(device)
         self.dtype: torch.dtype = _get_dtype(dtype)
 
-        self.logger: Logger = Logger("catasta", disable=not verbose)
-
         self._load_model()
-        self._log_inference_info()
+
+        if not verbose:
+            return
+
+        n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
+        print(
+            f"{ansi.BOLD}{ansi.GREEN}-> inference info{ansi.RESET}\n"
+            f"   |> model: {self.model.__class__.__name__} ({n_params} trainable parameters)\n"
+            f"   |> device: {self.device} ({device_name})"
+        )
 
     @torch.no_grad()
     def predict(self, input: np.ndarray | Tensor) -> PredictionInfo:
@@ -124,8 +131,6 @@ class Archway:
             elif "likelihood" in model.lower():
                 self.likelihood = torch.load(os.path.join(self.path, model), map_location=self.device)
 
-            self.logger.info(f"loaded {model} from {self.path}")
-
         if isinstance(self.model, Identity):
             raise ValueError("model not found")
 
@@ -134,11 +139,3 @@ class Archway:
 
         self.model.eval()
         self.likelihood.eval()
-
-    def _log_inference_info(self) -> None:
-        n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
-        self.logger.info(f"""inferring
-    -> model: {self.model.__class__.__name__} ({n_params} trainable parameters)
-    -> device: {self.device} ({device_name})
-        """)

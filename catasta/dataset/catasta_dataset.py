@@ -9,8 +9,6 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from vclog import Logger
-
 from ..transformations import Transformation
 
 
@@ -44,10 +42,8 @@ def scan_splits(root: str) -> tuple[str, str, str]:
     elif not validation_dir_name and not test_dir_name:
         raise ValueError(f"at least a validation or test split must be present in {root}")
     elif not validation_dir_name and test_dir_name:
-        # Logger("catasta").warning(f"no validation split found in {root}. Using test split as validation split.")
         validation_dir_name = test_dir_name
     elif not test_dir_name and validation_dir_name:
-        # Logger("catasta").warning(f"no test split found in {root}. Using validation split as test split.")
         test_dir_name = validation_dir_name
 
     return train_dir_name, validation_dir_name, test_dir_name
