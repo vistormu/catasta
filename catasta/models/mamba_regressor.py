@@ -169,7 +169,7 @@ def posemb_sincos_1d(patches: Tensor, temperature: int = 10000) -> Tensor:
 
 class MambaRegressor(Module):
     def __init__(self, *,
-                 context_length: int,
+                 n_inputs: int,
                  n_patches: int,
                  d_model: int,
                  d_state: int,
@@ -182,10 +182,10 @@ class MambaRegressor(Module):
                  ) -> None:
         super().__init__()
 
-        patch_size: int = context_length // n_patches
+        patch_size: int = n_inputs // n_patches
 
-        if context_length % patch_size != 0:
-            raise ValueError(f"sequence length {context_length} must be divisible by patch size {patch_size}")
+        if n_inputs % patch_size != 0:
+            raise ValueError(f"sequence length {n_inputs} must be divisible by patch size {patch_size}")
 
         self.pos_embedding = posemb_sincos_1d
 

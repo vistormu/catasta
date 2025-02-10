@@ -11,26 +11,29 @@ from torch.nn import (
     GELU,
     Identity,
 )
+from torch.fft import fft
 
-from einops import rearrange
+from einops import rearrange, reduce
 from einops.layers.torch import Rearrange
 
 
-def posemb_sincos_2d(h: int, w: int, dim: int, temperature: int = 10000) -> Tensor:
-    y, x = torch.meshgrid(torch.arange(h), torch.arange(w), indexing="ij")
+def posemb_sincos_1d(patches: Tensor, temperature: int = 10000) -> Tensor:
+    n: int = patches.shape[1]
+    d_model: int = patches.shape[2]
+    device: torch.device = patches.device
+    dtype: torch.dtype = patches.dtype
 
-    if dim % 4 != 0:
-        raise ValueError(f"feature dimension {dim} must be multiple of 4 for 2D sin-cos positional embedding")
+    if (d_model % 2) != 0:
+        raise ValueError(f'feature dimension must be multiple of 2 for sincos emb. got {d_model}')
 
-    omega: Tensor = torch.arange(dim // 4) / (dim // 4 - 1)
+    n_tensor: Tensor = torch.arange(n, device=device)
+    omega: Tensor = torch.arange(d_model // 2, device=device) / (d_model // 2 - 1)
     omega = 1.0 / (temperature ** omega)
 
-    y = y.flatten()[:, None] * omega[None, :]
-    x = x.flatten()[:, None] * omega[None, :]
+    n_tensor = n_tensor.flatten()[:, None] * omega[None, :]
+    pe: Tensor = torch.cat((n_tensor.sin(), n_tensor.cos()), dim=1)
 
-    pe = torch.cat((x.sin(), x.cos(), y.sin(), y.cos()), dim=1)
-
-    return pe.to(torch.float32)
+    return pe.to(dtype)
 
 
 class FeedForward(Module):
@@ -134,10 +137,9 @@ class Transformer(Module):
         return x
 
 
-class TransformerClassifier(Module):
+class TransformerFFTRegressor(Module):
     def __init__(self, *,
-                 input_shape: tuple[int, int, int],
-                 n_classes: int,
+                 n_inputs: int,
                  n_patches: int,
                  d_model: int,
                  n_layers: int,
@@ -145,34 +147,34 @@ class TransformerClassifier(Module):
                  feedforward_dim: int,
                  head_dim: int,
                  dropout: float = 0.0,
+                 pooling: str = "mean",
                  layer_norm: bool = False,
                  ) -> None:
         super().__init__()
+        patch_size: int = n_inputs // n_patches
+        freq_patch_dim: int = patch_size * 2
 
-        image_height: int = input_shape[0]
-        image_width: int = input_shape[1]
-        image_channels: int = input_shape[2]
-
-        patch_height: int = image_height // n_patches
-        patch_width: int = image_width // n_patches
-        patch_size: int = patch_height * patch_width * image_channels
-
-        if image_height % n_patches != 0 or image_width % n_patches != 0:
-            raise ValueError(f"image size ({input_shape[0]}, {input_shape[1]}) must be divisible by number of patches {n_patches}")
+        if n_inputs % patch_size != 0:
+            raise ValueError(f"sequence length {n_inputs} must be divisible by patch size {patch_size}")
 
         self.to_patch_embedding = Sequential(
-            Rearrange('b (h ph) (w pw) c -> b (h w) (ph pw c)', ph=patch_height, pw=patch_width),
+            Rearrange('b (n p) -> b n p', p=patch_size),
             LayerNorm(patch_size) if layer_norm else Identity(),
             Linear(patch_size, d_model),
             LayerNorm(d_model) if layer_norm else Identity(),
         )
 
-        self.pos_embedding = posemb_sincos_2d(
-            h=image_height // patch_height,
-            w=image_width // patch_width,
-            dim=d_model,
+        self.to_freq_embedding = Sequential(
+            Rearrange('b (n p) ri -> b n (p ri)', p=patch_size),
+            LayerNorm(freq_patch_dim) if layer_norm else Identity(),
+            Linear(freq_patch_dim, d_model),
+            LayerNorm(d_model) if layer_norm else Identity(),
         )
+
+        self.pos_embedding = posemb_sincos_1d
         self.dropout = Dropout(dropout)
+
+        self.pooling = pooling
 
         self.transformer = Transformer(
             d_model=d_model,
@@ -184,18 +186,29 @@ class TransformerClassifier(Module):
             layer_norm=layer_norm,
         )
 
+        linear_head_input_dim: int = d_model * n_patches if pooling == "concat" else d_model
+
         self.linear_head = Sequential(
-            LayerNorm(d_model) if layer_norm else Identity(),
-            Linear(d_model, n_classes),
+            LayerNorm(linear_head_input_dim) if layer_norm else Identity(),
+            Linear(linear_head_input_dim, 1),
         )
 
-    def forward(self, input: Tensor) -> Tensor:
-        x = self.to_patch_embedding(input)
-        x += self.pos_embedding.to(x.device)
+    def forward(self, x: Tensor) -> Tensor:
+        freqs: Tensor = torch.view_as_real(fft(x))
+
+        x = self.to_patch_embedding(x)
+        f = self.to_freq_embedding(freqs)
+
+        x += self.pos_embedding(x)
+        f += self.pos_embedding(f)
+
+        x = torch.cat((x, f), dim=1)
 
         x = self.transformer(x)
-        x = x.mean(dim=1)
+        x = self.dropout(x)
 
-        x = self.linear_head(x)
+        x = reduce(x, 'b n d -> b d', self.pooling) if self.pooling != "concat" else rearrange(x, 'b n d -> b (n d)')
+
+        x = self.linear_head(x).squeeze()
 
         return x

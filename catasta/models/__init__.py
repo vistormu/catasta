@@ -1,18 +1,18 @@
 # regressors
-from .regressors.approximate_gp_regressor import ApproximateGPRegressor
-from .regressors.feedforward_regressor import FeedforwardRegressor
-from .regressors.transformer_regressor import TransformerRegressor
-from .regressors.transformer_fft_regressor import TransformerFFTRegressor
-from .regressors.mamba_regressor import MambaRegressor
-from .regressors.mamba_fft_regressor import MambaFFTRegressor
-from .regressors.patch_gp_regressor import PatchGPRegressor
-from .regressors.patch_gp_fft_regressor import PatchGPFFTRegressor
-from .regressors.gp_former_regressor import GPFormerRegressor
+from .gp_regressor import GPRegressor
+from .feedforward_regressor import FeedforwardRegressor
+from .transformer_regressor import TransformerRegressor
+from .transformer_fft_regressor import TransformerFFTRegressor
+from .mamba_regressor import MambaRegressor
+from .mamba_fft_regressor import MambaFFTRegressor
+from .patch_gp_regressor import PatchGPRegressor
+from .patch_gp_fft_regressor import PatchGPFFTRegressor
+from .gpformer_regressor import GPFormerRegressor
 
 # classifiers
-from .classifiers.feedforward_classifier import FeedforwardClassifier
-from .classifiers.transformer_classifier import TransformerClassifier
-from .classifiers.transformer_fft_classifier import TransformerFFTClassifier
-from .classifiers.mamba_classifier import MambaClassifier
-from .classifiers.mamba_fft_classifier import MambaFFTClassifier
-from .classifiers.cnn_classifier import CNNClassifier
+from .feedforward_image_classifier import FeedforwardImageClassifier
+from .transformer_image_classifier import TransformerImageClassifier
+from .transformer_fft_image_classifier import TransformerFFTImageClassifier
+from .mamba_image_classifier import MambaImageClassifier
+from .mamba_fft_image_classifier import MambaFFTImageClassifier
+from .cnn_image_classifier import CNNImageClassifier
