@@ -89,6 +89,7 @@ class EvalInfo:
         self.r2: float = 1 - np.sum((y - y_pred)**2) / np.sum((y - np.mean(y))**2).astype(float)
 
     def _calculate_classification_metrics(self, y: np.ndarray, y_pred: np.ndarray, n_classes: int | None) -> None:
+        y_pred = np.argmax(y_pred, axis=1)
         self.confusion_matrix: np.ndarray = self._compute_confusion_matrix(y, y_pred, n_classes)
 
         self.tp: np.ndarray = np.diag(self.confusion_matrix)

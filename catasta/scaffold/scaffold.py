@@ -7,19 +7,17 @@ import numpy as np
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Identity
+from torch.nn import Module
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torch.distributions import Distribution
 
-from gpytorch.models.gp import GP
 from gpytorch.mlls import MarginalLogLikelihood
 
 from ..dataset import CatastaDataset
 from .utils import (
     get_optimizer,
     get_loss_function,
-    get_likelihood,
     ModelStateManager,
     TrainingLogger,
 )
@@ -45,7 +43,6 @@ class Scaffold:
                  dataset: CatastaDataset,
                  optimizer: str | Optimizer,
                  loss_function: str | Module,
-                 likelihood: str | Module | None = None,
                  device: str = "auto",
                  verbose: bool = True,
                  ) -> None:
@@ -61,8 +58,6 @@ class Scaffold:
             The optimizer to be used for training. The user can either pass a string with the name of the optimizer or a custom optimizer. One of: adam, sgd, adamw, lbfgs, rmsprop, rprop, adadelta, adagrad, adamax, asgd, sparseadam.
         loss_function : str | torch.nn.Module
             The loss function to be used for training. The user can either pass a string with the name of the loss function or a custom loss function. A list of available loss functions is in ~catasta.scaffolds.utils.available_loss_functions
-        likelihood : str | torch.nn.Module, optional
-            The likelihood to be used for Gaussian Processes. If the user is training a GP model and the likelihood is not provided, the default Gaussian likelihood is used. One of: gaussian, bernoulli, laplace, softmax, studentt, beta.
         device : str, optional
             The device to be used for training. One of "cpu", "cuda", or "auto". Defaults to "auto".
         verbose : bool, optional
@@ -77,17 +72,12 @@ class Scaffold:
         self.verbose: bool = verbose
 
         self.model: Module = model.to(self.device, self.input_dtype)
-        if isinstance(self.model, GP) and likelihood is None:
-            self.likelihood: Module = get_likelihood("gaussian").to(self.device, self.input_dtype)
-        else:
-            self.likelihood: Module = get_likelihood(likelihood).to(self.device, self.input_dtype)
 
         self.dataset: CatastaDataset = dataset
 
         self.optimizer_id: str | Optimizer = optimizer
         self.loss_function_id: str | Module = loss_function
 
-        # log training info
         if not self.verbose:
             return
 
@@ -113,7 +103,7 @@ class Scaffold:
         """Train the model on the dataset.
 
         Arguments
-        - --------
+        ---------
         epochs: int
             The number of epochs to train the model.
         batch_size: int
@@ -128,8 +118,8 @@ class Scaffold:
             The number of workers to use for the data loader. Defaults to 0. Tip: set to 4 times the number of GPUs.
         """
         # VARIABLES
-        optimizer: Optimizer = get_optimizer(self.optimizer_id, [self.model, self.likelihood], lr)
-        loss_function: Module = get_loss_function(self.loss_function_id, self.model, self.likelihood, len(self.dataset.train))  # type: ignore
+        optimizer: Optimizer = get_optimizer(self.optimizer_id, self.model, lr)
+        loss_function: Module = get_loss_function(self.loss_function_id, self.model, len(self.dataset.train))  # type: ignore
 
         model_state_manager: ModelStateManager = ModelStateManager(early_stopping_alpha)
 
@@ -160,16 +150,14 @@ class Scaffold:
 
                 # train
                 self.model.train()
-                self.likelihood.train()
                 train_loss = self._epoch(train_data_loader, loss_function, optimizer)
 
                 # validation
                 self.model.eval()
-                self.likelihood.eval()
                 with torch.no_grad():
                     val_loss = self._epoch(val_data_loader, loss_function, None)
 
-                model_state_manager([self.model, self.likelihood], val_loss)
+                model_state_manager(self.model, val_loss)
 
                 if model_state_manager.stop:
                     print(
@@ -198,7 +186,7 @@ class Scaffold:
         # END OF TRAINING
         train_info = training_logger.get_info()
 
-        model_state_manager.load_best_model_state([self.model, self.likelihood])
+        model_state_manager.load_best_model_state(self.model)
 
         return train_info
 
@@ -217,7 +205,7 @@ class Scaffold:
             if optimizer is not None:
                 optimizer.zero_grad(set_to_none=True)
 
-            output = self.likelihood(self.model(inputs))
+            output = self.model(inputs)
 
             loss: Tensor = loss_function(output, targets)  # type: ignore
             if isinstance(loss_function, MarginalLogLikelihood):
@@ -235,25 +223,55 @@ class Scaffold:
 
         return epoch_loss.item()
 
-    def evaluate(self) -> EvalInfo:
+    @torch.no_grad()
+    def evaluate(self, batch_size: int | None = None) -> EvalInfo:
         """Evaluate the model on the test set of the dataset.
 
+        Arguments
+        ---------
+        batch_size: int, optional
+            The batch size to use for evaluation. If None, it uses the entire test set. Defaults to None.
+
         Returns
-        - ------
+        -------
         ~catasta.dataclasses.EvalInfo
             The evaluation information.
         """
         self.model.eval()
-        self.likelihood.eval()
 
-        if self.task == "regression":
-            return self._evaluate_regression(self.dataset.test)
-        else:
-            return self._evaluate_classification(self.dataset.test)
+        batch_size = len(self.dataset.test) if batch_size is None else batch_size  # type: ignore
+        data_loader: DataLoader = DataLoader(
+            self.dataset.test,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=0,
+            pin_memory=True if self.device.type == "cuda" else False,
+        )
 
-    def save(self,
-             path: str,
-             ) -> None:
+        true_output = []
+        predicted_output = []
+        predicted_output_std = []
+        for x, y in data_loader:
+            x = x.to(self.device, self.input_dtype)
+
+            output = self.model(x)
+            true_output.append(y.cpu().numpy())
+
+            if isinstance(output, Distribution):
+                predicted_output.append(output.mean.cpu().numpy())
+                predicted_output_std.append(output.stddev.cpu().numpy())
+            else:
+                predicted_output.append(output.cpu().numpy())
+                predicted_output_std.append(np.zeros_like(output.cpu().numpy()))
+
+        return EvalInfo(
+            task=self.task,
+            true_output=np.concatenate(true_output),
+            predicted_output=np.concatenate(predicted_output),
+            predicted_std=np.concatenate(predicted_output_std),
+        )
+
+    def save(self, path: str) -> None:
         """Save the model to a file.
 
         Arguments
@@ -276,59 +294,8 @@ class Scaffold:
         os.makedirs(save_path, exist_ok=True)
 
         self.model.to(model_device)
-        self.likelihood.to(model_device)
 
-        for model in [self.model, self.likelihood]:
-            if isinstance(model, Identity):
-                continue
+        model_path: str = os.path.join(save_path, f"{self.model.__class__.__name__}.pt")
+        torch.save(self.model, model_path)
 
-            model_path: str = os.path.join(save_path, f"{model.__class__.__name__}.pt")
-            torch.save(model, model_path)
-
-            self.logger.info(f"model saved to {model_path}")
-
-    @torch.no_grad()
-    def _evaluate_regression(self, dataset: Dataset) -> EvalInfo:
-        x, y = next(iter(DataLoader(dataset, batch_size=len(dataset), shuffle=False)))  # type: ignore
-
-        x: Tensor = x.to(self.device, dtype=self.input_dtype)
-        y: Tensor = y.to(self.device, dtype=self.output_dtype)
-
-        output = self.likelihood(self.model(x))
-
-        true_output: np.ndarray = y.cpu().numpy()
-
-        if isinstance(output, Distribution):
-            predicted_output: np.ndarray = output.mean.cpu().numpy()
-            predicted_output_std: np.ndarray = output.stddev.cpu().numpy()
-        else:
-            predicted_output: np.ndarray = output.cpu().numpy()
-            predicted_output_std = np.zeros_like(true_output)
-
-        return EvalInfo(
-            task="regression",
-            true_output=true_output,
-            predicted_output=predicted_output,
-            predicted_std=predicted_output_std,
-        )
-
-    @torch.no_grad()
-    def _evaluate_classification(self, dataset: Dataset) -> EvalInfo:
-        dataloader: DataLoader = DataLoader(dataset, batch_size=128, shuffle=False)
-
-        true_labels: list[int] = []
-        predicted_labels: list[int] = []
-        for x_batch, y_batch in dataloader:
-            x_batch = x_batch.to(self.device, dtype=self.input_dtype)
-            y_batch = y_batch.to(self.device, dtype=self.output_dtype)
-
-            output: Tensor = self.model(x_batch)
-
-            true_labels.append(y_batch.cpu().numpy())
-            predicted_labels.append(output.argmax(dim=1).cpu().numpy())
-
-        return EvalInfo(
-            task="classification",
-            true_output=np.concatenate(true_labels),
-            predicted_output=np.concatenate(predicted_labels),
-        )
+        # self.logger.info(f"model saved to {model_path}")
