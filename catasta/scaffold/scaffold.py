@@ -71,15 +71,16 @@ class Scaffold:
         self.task: str = dataset.task
 
         self.device: torch.device = _get_device(device)
-        self.dtype: torch.dtype = torch.float32
+        self.input_dtype: torch.dtype = torch.float32
+        self.output_dtype: torch.dtype = torch.float32 if self.task == "regression" else torch.long
 
         self.verbose: bool = verbose
 
-        self.model: Module = model.to(self.device, self.dtype)
+        self.model: Module = model.to(self.device, self.input_dtype)
         if isinstance(self.model, GP) and likelihood is None:
-            self.likelihood: Module = get_likelihood("gaussian").to(self.device, self.dtype)
+            self.likelihood: Module = get_likelihood("gaussian").to(self.device, self.input_dtype)
         else:
-            self.likelihood: Module = get_likelihood(likelihood).to(self.device, self.dtype)
+            self.likelihood: Module = get_likelihood(likelihood).to(self.device, self.input_dtype)
 
         self.dataset: CatastaDataset = dataset
 
@@ -210,8 +211,8 @@ class Scaffold:
         total_samples: int = 0
 
         for inputs, targets in data_loader:
-            inputs = inputs.to(self.device, self.dtype, non_blocking=True)
-            targets = targets.to(self.device, self.dtype if self.task == "regression" else torch.long, non_blocking=True)
+            inputs = inputs.to(self.device, self.input_dtype, non_blocking=True)
+            targets = targets.to(self.device, self.output_dtype, non_blocking=True)
 
             if optimizer is not None:
                 optimizer.zero_grad(set_to_none=True)
@@ -290,8 +291,8 @@ class Scaffold:
     def _evaluate_regression(self, dataset: Dataset) -> EvalInfo:
         x, y = next(iter(DataLoader(dataset, batch_size=len(dataset), shuffle=False)))  # type: ignore
 
-        x: Tensor = x.to(self.device, dtype=self.dtype)
-        y: Tensor = y.to(self.device, dtype=self.dtype)
+        x: Tensor = x.to(self.device, dtype=self.input_dtype)
+        y: Tensor = y.to(self.device, dtype=self.output_dtype)
 
         output = self.likelihood(self.model(x))
 
@@ -318,8 +319,8 @@ class Scaffold:
         true_labels: list[int] = []
         predicted_labels: list[int] = []
         for x_batch, y_batch in dataloader:
-            x_batch = x_batch.to(self.device, dtype=self.dtype)
-            y_batch = y_batch.to(self.device, dtype=torch.long)
+            x_batch = x_batch.to(self.device, dtype=self.input_dtype)
+            y_batch = y_batch.to(self.device, dtype=self.output_dtype)
 
             output: Tensor = self.model(x_batch)
 
