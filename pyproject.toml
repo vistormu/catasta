@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "catasta"
-version = "0.3.0"
+version = "0.4.0"
 authors = [
   { name="Vistor" },
 ]
-description = "Catasta is a Python library designed to simplify and accelerate the process of machine learning model experimentation. It encapsulates the complexities of model training and evaluation, offering researchers and developers a straightforward pipeline for rapid model assessment with minimal setup required."
+description = "_Catasta_ is a Python library designed to simplify the process of Machine Learning model experimentation. Optimization, training, evaluation and inference all in one place!"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -22,7 +22,6 @@ dependencies = [
     "torch",
     "gpytorch",
     "einops",
-    "vclog",
     "scipy",
     "pillow",
     "optuna",
