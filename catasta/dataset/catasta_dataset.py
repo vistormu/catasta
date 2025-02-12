@@ -74,10 +74,10 @@ class CatastaDataset:
     def __init__(self,
                  root: str,
                  task: str,
+                 input_name: str | list[str],
+                 output_name: str | list[str],
                  input_transformations: Sequence[Transformation] = [],
                  output_transformations: Sequence[Transformation] = [],
-                 input_name: str | list[str] = "input",
-                 output_name: str = "output",
                  grayscale: bool = False,
                  ) -> None:
         """Initialize the CatastaDataset object.
@@ -88,14 +88,14 @@ class CatastaDataset:
             The root directory of the Catasta dataset.
         task : str
             The task of the dataset. Either 'regression' or 'classification'.
+        input_name : str | list[str], optional
+            The name of the columns in the CSV files that contains the input data, by default "input".
+        output_name : str | list[str], optional
+            The name of the columns in the CSV files that contains the output data, by default "output".
         input_transformations : list[~catasta.transformations.Transformation], optional
             A list of transformations to apply to the input data, by default [].
         output_transformations : list[~catasta.transformations.Transformation], optional
             A list of transformations to apply to the output data, by default [].
-        input_name : str | list[str], optional
-            The name of the columns in the CSV files that contains the input data, by default "input".
-        output_name : str, optional
-            The name of the column in the CSV files that contains the output data, by default "output".
         grayscale : bool, optional
             Whether to convert the images to grayscale, by default False.
 
@@ -119,22 +119,22 @@ class CatastaDataset:
 
         if self.task == "regression":
             self.train: Dataset = RegressionSubset(self.root + splits[0],
-                                                   input_transformations,
-                                                   output_transformations,
                                                    input_name,
                                                    output_name,
+                                                   input_transformations,
+                                                   output_transformations,
                                                    )
             self.validation: Dataset = RegressionSubset(self.root + splits[1],
-                                                        input_transformations,
-                                                        output_transformations,
                                                         input_name,
                                                         output_name,
+                                                        input_transformations,
+                                                        output_transformations,
                                                         )
             self.test: Dataset = RegressionSubset(self.root + splits[2],
-                                                  input_transformations,
-                                                  output_transformations,
                                                   input_name,
                                                   output_name,
+                                                  input_transformations,
+                                                  output_transformations,
                                                   )
         elif self.task == "classification":
             self.train: Dataset = ClassificationSubset(self.root + splits[0],
@@ -167,21 +167,21 @@ class CatastaDataset:
 class RegressionSubset(Dataset):
     def __init__(self,
                  path: str,
-                 input_transformations: list[Transformation],
-                 output_transformations: list[Transformation],
                  input_name: str | list[str],
-                 output_name: str,
+                 output_name: str | list[str],
+                 input_transformations: Sequence[Transformation],
+                 output_transformations: Sequence[Transformation],
                  ) -> None:
         self.root: str = path if path.endswith("/") else path + "/"
 
-        self.input_transformations: list[Transformation] = input_transformations
-        self.output_transformations: list[Transformation] = output_transformations
+        self.input_transformations = input_transformations
+        self.output_transformations = output_transformations
         self.inputs, self.outputs = self._get_data(input_name, output_name)
 
         self.inputs = torch.tensor(self.inputs)
         self.outputs = torch.tensor(self.outputs)
 
-    def _get_data(self, input_name: str | list[str], output_name: str) -> tuple[np.ndarray, np.ndarray]:
+    def _get_data(self, input_name: str | list[str], output_name: str | list[str]) -> tuple[np.ndarray, np.ndarray]:
         inputs: list[np.ndarray] = []
         outputs: list[np.ndarray] = []
 
@@ -212,10 +212,13 @@ class RegressionSubset(Dataset):
         return self.inputs.shape[0]
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        return self.inputs[index].view(-1), self.outputs[index].squeeze()
+        input = self.inputs[index].view(-1)
+        output = self.outputs[index].squeeze() if self.outputs.ndim > 1 else self.outputs[index]
+
+        return input, output
 
 
-EXTENSIONS = (".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp", ".csv")
+EXTENSIONS = (".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp")
 
 
 class Sample(NamedTuple):
@@ -226,11 +229,11 @@ class Sample(NamedTuple):
 class ClassificationSubset(Dataset):
     def __init__(self,
                  path: str,
-                 input_transformations: list[Transformation],
+                 input_transformations: Sequence[Transformation],
                  grayscale: bool,
                  ) -> None:
         self.path: str = path if path.endswith("/") else path + "/"
-        self.input_transformations: list[Transformation] = input_transformations
+        self.input_transformations = input_transformations
         self.grayscale: bool = grayscale
 
         self.classes: list[str] = scan_classes(path)

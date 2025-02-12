@@ -139,6 +139,7 @@ class Transformer(Module):
 class TransformerRegressor(Module):
     def __init__(self, *,
                  n_inputs: int,
+                 n_outputs: int,
                  n_patches: int,
                  d_model: int,
                  n_layers: int,
@@ -180,7 +181,7 @@ class TransformerRegressor(Module):
 
         self.linear_head = Sequential(
             LayerNorm(linear_head_input_dim) if layer_norm else Identity(),
-            Linear(linear_head_input_dim, 1),
+            Linear(linear_head_input_dim, n_outputs),
         )
 
     def forward(self, x: Tensor) -> Tensor:

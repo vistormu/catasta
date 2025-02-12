@@ -30,6 +30,7 @@ def get_actvation_function(activation: str) -> Module:
 class FeedforwardRegressor(Module):
     def __init__(self, *,
                  n_inputs: int,
+                 n_outputs: int,
                  dropout: float,
                  hidden_dims: list[int] = [],
                  use_layer_norm: bool = True,
@@ -67,7 +68,7 @@ class FeedforwardRegressor(Module):
             # dropout
             layers.append(Dropout(dropout))
 
-        layers.append(Linear(hidden_dims[-1], 1))
+        layers.append(Linear(hidden_dims[-1], n_outputs))
 
         self.net: Sequential = Sequential(*layers)
 

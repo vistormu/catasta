@@ -285,7 +285,14 @@ class Scaffold:
             If the path is not a directory, a `.pt` or `.onnx` file.
         """
 
-        if not os.path.exists(path):
+        if "." in path and not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
+            print(
+                f"{ansi.BOLD}{ansi.YELLOW}-> specified path does not exist{ansi.RESET}\n"
+                f"   |> created directory: {os.path.dirname(path)}"
+            )
+
+        if "." not in path and not os.path.exists(path):
             os.makedirs(path)
             print(
                 f"{ansi.BOLD}{ansi.YELLOW}-> specified path does not exist{ansi.RESET}\n"
@@ -293,17 +300,36 @@ class Scaffold:
             )
 
         self.model.to("cpu")
-        self.model.eval()
+
+        if os.path.isdir(path):
+            path = os.path.join(path, f"{self.model.__class__.__name__}.pt")
 
         if path.endswith(".pt") or path.endswith(".pth"):
             torch.save(self.model, path)
 
-        elif os.path.isdir(path):
-            torch.save(self.model, os.path.join(path, f"{self.model.__class__.__name__}.pt"))
-
         elif path.endswith(".onnx"):
-            model_input = self.dataset.train[0][0].unsqueeze(0).to("cpu")
-            dummy_input = torch.randn(1, *model_input.shape[1:], dtype=model_input.dtype)
+            # check if the onnx library is installed
+            try:
+                import onnx  # type: ignore
+            except ImportError:
+                print(
+                    f"{ansi.BOLD}{ansi.RED}-> onnx library not found{ansi.RESET}\n"
+                    f"   |> onnx is a special use case, please install it manually\n"
+                    f"   |> the model will be saved as a `.pt` file\n"
+                    f"   |> run: pip install onnx"
+                )
+
+                torch.save(self.model, path.replace(".onnx", ".pt"))
+
+                print(
+                    f"{ansi.BOLD}{ansi.GREEN}-> model saved{ansi.RESET}\n"
+                    f"   |> path: {path.replace('.onnx', '.pt')}"
+                )
+                return
+
+            input_shape = self.dataset.train[0][0].shape
+            dummy_input = torch.randn(1, *input_shape, dtype=self.input_dtype)
+
             torch.onnx.export(
                 self.model,
                 dummy_input,  # type: ignore

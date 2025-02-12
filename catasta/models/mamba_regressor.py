@@ -170,6 +170,7 @@ def posemb_sincos_1d(patches: Tensor, temperature: int = 10000) -> Tensor:
 class MambaRegressor(Module):
     def __init__(self, *,
                  n_inputs: int,
+                 n_outputs: int,
                  n_patches: int,
                  d_model: int,
                  d_state: int,
@@ -213,7 +214,7 @@ class MambaRegressor(Module):
 
         self.linear_head = Sequential(
             LayerNorm(d_model) if layer_norm else Identity(),
-            Linear(d_model, 1),
+            Linear(d_model, n_outputs),
         )
 
     def forward(self, x: Tensor) -> Tensor:
