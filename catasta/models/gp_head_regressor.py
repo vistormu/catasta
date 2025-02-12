@@ -1,5 +1,6 @@
 import torch
 from torch import Tensor, Size
+from torch.nn import Module
 
 from gpytorch.models import ApproximateGP
 from gpytorch.variational import (
@@ -85,11 +86,13 @@ def _get_likelihood(id: str, n_outputs: int) -> Likelihood:
             raise ValueError(f"Unknown likelihood: {id}")
 
 
-class GPRegressor(ApproximateGP):
+class GPHeadRegressor(ApproximateGP):
     def __init__(self, *,
-                 n_inducing_points: int,
+                 pre_model: Module,
+                 pre_model_output_dim: int,
                  n_inputs: int,
                  n_outputs: int,
+                 n_inducing_points: int,
                  kernel: str = "rq",
                  mean: str = "constant",
                  likelihood: str = "gaussian",
@@ -98,6 +101,10 @@ class GPRegressor(ApproximateGP):
         '''
         Arguments
         ---------
+        pre_model: Module
+            The model that will be used to preprocess the input data
+        pre_model_output_dim: int
+            The output dimension of the pre_model
         n_inducing_points: int
             Number of inducing points
         n_inputs: int
@@ -113,6 +120,9 @@ class GPRegressor(ApproximateGP):
         use_ard: bool
             Whether to use Automatic Relevance Determination
         '''
+        if n_outputs > 1:
+            raise NotImplementedError("Multi-output regression is not yet supported")
+
         batch_shape = Size([]) if n_outputs == 1 else Size([n_outputs])
         inducing_points_shape = (n_inducing_points, n_inputs) if n_outputs == 1 else (n_outputs, n_inducing_points, n_inputs)
         inducing_points: Tensor = torch.randn(inducing_points_shape, dtype=torch.float32)
@@ -134,13 +144,22 @@ class GPRegressor(ApproximateGP):
 
         super().__init__(variational_strategy)
         self.mean_module = _get_mean_module(mean, batch_shape)
-        self.covar_module = ScaleKernel(_get_kernel(kernel, n_inputs, use_ard, batch_shape), batch_shape=batch_shape)
+        self.covar_module = ScaleKernel(
+            _get_kernel(
+                kernel,
+                pre_model_output_dim,
+                use_ard,
+                batch_shape
+            ),
+            batch_shape=batch_shape,
+        )
         self.likelihood = _get_likelihood(likelihood, n_outputs)
+        self.pre_model = pre_model
 
     def forward(self, x: Tensor) -> MultivariateNormal:
+        x = self.pre_model(x)
+
         mean_x: Tensor = self.mean_module(x)  # type: ignore
         covar_x: Tensor = self.covar_module(x)  # type: ignore
 
-        latent_pred: MultivariateNormal = MultivariateNormal(mean_x, covar_x)
-
-        return latent_pred
+        return MultivariateNormal(mean_x, covar_x)

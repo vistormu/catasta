@@ -37,6 +37,26 @@ class FeedforwardRegressor(Module):
                  use_batch_norm: bool = False,
                  activation: str = 'relu',
                  ) -> None:
+        """
+        feedforward regressor
+
+        arguments
+        ---------
+        n_inputs: int
+            number of input features
+        n_outputs: int
+            number of output features
+        dropout: float
+            dropout rate
+        hidden_dims: list[int]
+            hidden layer dimensions
+        use_layer_norm: bool
+            use layer normalization
+        use_batch_norm: bool
+            use batch normalization
+        activation: str
+            activation function. options: relu, sigmoid, tanh, gelu
+        """
         super().__init__()
 
         layers: list[Module] = []
