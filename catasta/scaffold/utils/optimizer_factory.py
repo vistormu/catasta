@@ -15,13 +15,11 @@ from torch.optim import (
 )
 
 
-def get_optimizer(id: str | Optimizer, model: list[Module], lr: float) -> Optimizer:
+def get_optimizer(id: str | Optimizer, model: Module, lr: float) -> Optimizer:
     if isinstance(id, Optimizer):
         return id
 
-    parameters = []
-    for m in model:
-        parameters += list(m.parameters())
+    parameters = model.parameters()
 
     match id.lower():
         case "adam":

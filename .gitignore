@@ -5,3 +5,6 @@
 /tests/data/
 /tests/models/
 **/saved_models/
+/.venv/
+/.venv-test/
+uv.lock
