@@ -1,14 +1,11 @@
-import platform
 import os
 
 import numpy as np
 
 import torch
+from torch.nn import Module
 from torch import Tensor
-from torch.nn import Identity
-from torch.distributions import Distribution
 
-from ..dataclasses import PredictionInfo
 from ..log import ansi
 
 
@@ -26,6 +23,12 @@ def _get_device(device: str) -> torch.device:
 
 def _get_dtype(dtype: str) -> torch.dtype:
     match dtype:
+        case "qint8":
+            return torch.qint8
+        case "quint8":
+            return torch.quint8
+        case "qint32":
+            return torch.qint32
         case "float16":
             return torch.float16
         case "float32":
@@ -36,106 +39,208 @@ def _get_dtype(dtype: str) -> torch.dtype:
             raise ValueError("Invalid dtype")
 
 
+def _compile_model(model: Module, compile_method: str, **kwargs) -> Module:
+    match compile_method:
+        case "none":
+            return model
+
+        case "torchscript":
+            return torch.jit.script(model)
+
+        case "torchscript_optimized":
+            return torch.jit.optimize_for_inference(torch.jit.script(model))
+
+        case "torchscript_quantized":
+            import platform
+            backend = "qnnpack" if "arm" in platform.processor().lower() else "fbgemm"
+            torch.backends.quantized.engine = backend
+
+            return torch.quantization.quantize_dynamic(
+                model,
+                {*kwargs["layers"]},
+                dtype=_get_dtype(kwargs["dtype"]),
+            )
+
+        case "torchscript_quantized_optimized":
+            import platform
+            backend = "qnnpack" if "arm" in platform.processor().lower() else "fbgemm"
+            torch.backends.quantized.engine = backend
+
+            return torch.jit.optimize_for_inference(
+                torch.quantization.quantize_dynamic(
+                    model,
+                    {*kwargs["layers"]},
+                    dtype=kwargs["dtype"],
+                )
+            )
+
+        case _:
+            raise ValueError("Invalid compile method")
+
+
+def _load_model(path: str, device: torch.device, dtype: torch.dtype) -> Module:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Model not found at {path}")
+
+    if path.endswith(".pt") or path.endswith(".pth"):
+        model = torch.load(path, map_location=device, weights_only=False)
+        model.to(device, dtype)
+        model.eval()
+
+        print(
+            f"{ansi.BOLD}{ansi.GREEN}-> model loaded{ansi.RESET}\n"
+            f"   |> path: {path}"
+        )
+
+        return model
+
+    if path.endswith(".onnx"):
+        try:
+            import onnxruntime as ort  # type: ignore
+            ort.set_default_logger_severity(3)  # TMP: suppress onnxruntime warnings
+        except ImportError:
+            print(
+                f"{ansi.RED}-> missing library{ansi.RESET}\n"
+                f"   |> this method is only available if you have onnxruntime installed\n"
+                f"   |> run: pip install onnxruntime"
+            )
+            raise ImportError("onnxruntime not installed")
+
+        model = ort.InferenceSession(path)
+
+        print(
+            f"{ansi.BOLD}{ansi.GREEN}-> model loaded{ansi.RESET}\n"
+            f"   |> path: {path}"
+        )
+
+        return model
+
+    raise ValueError("Invalid model format")
+
+
 class Archway:
-    """A class for inference with a trained model.
-    """
+    """a class for inference with a trained model"""
 
     def __init__(self,
                  path: str,
+                 compile_method: str = "none",
                  device: str = "auto",
                  dtype: str = "float32",
-                 verbose: bool = True,
+                 quantization_kwargs: dict = {},
                  ) -> None:
-        """Initialize the Archway object.
+        """initialize the Archway class
 
-        Arguments
+        arguments
         ---------
         path : str
-            The path to the directory containing the saved model. The directory should be named after the model.
-        device : str, optional
-            The device to perform inference on. Can be "cpu", "cuda", or "auto".
-        dtype : str, optional
-            The data type to use for inference. Can be "float16", "float32", or "float64".
-        verbose : bool, optional
-            Whether to log information about the inference process.
+            the path to the model file
+        compile_method : str
+            the method to compile the model. options: "none", "torchscript", "torchscript_optimized", "torchscript_quantized", "torchscript_quantized_optimized"
+        device : str
+            the device to run the model on. options: "cpu", "cuda", "auto"
+        dtype : str
+            the datatype to use for the model. options: "qint8", "quint8", "qint32", "float16", "float32", "float64"
+        quantization_kwargs : dict
+            keyword arguments for quantization: "layers" (set of layers to quantize), "dtype" (datatype to quantize to)
 
-        Raises
+        raises
         ------
-        ValueError
-            If the load path is a file path.
         """
-        self.path: str = path if path.endswith("/") else f"{path}/"
+        self.device = _get_device(device)
+        self.dtype = _get_dtype(dtype)
 
-        self.device: torch.device = _get_device(device)
-        self.dtype: torch.dtype = _get_dtype(dtype)
+        self.model: Module = _load_model(path, self.device, self.dtype)
+        self.model = _compile_model(self.model, compile_method, **quantization_kwargs)
 
-        self._load_model()
+        self.predict = self.predict_torch if isinstance(self.model, Module) else self.predict_onnx
 
-        if not verbose:
-            return
+    def predict_torch(self, input: np.ndarray | Tensor) -> np.ndarray:
+        """predict with a PyTorch model
 
-        n_params: int = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        device_name: str = torch.cuda.get_device_name() if self.device.type == "cuda" else platform.processor()
-        print(
-            f"{ansi.BOLD}{ansi.GREEN}-> inference info{ansi.RESET}\n"
-            f"   |> model: {self.model.__class__.__name__} ({n_params} trainable parameters)\n"
-            f"   |> device: {self.device} ({device_name})"
-        )
-
-    @torch.no_grad()
-    def predict(self, input: np.ndarray | Tensor) -> PredictionInfo:
-        """Perform inference with the model.
-
-        Arguments
+        arguments
         ---------
-        input : np.ndarray or Tensor
-            The input data to make predictions on.
+        input : np.ndarray | Tensor
+            the input data
 
-        Returns
+        returns
         -------
-        ~catasta.dataclasses.PredictionInfo
-            The predicted values and standard deviations.
+        np.ndarray
+            the predicted values
         """
-        input_tensor: Tensor = torch.tensor(input) if isinstance(input, np.ndarray) else input
-        input_tensor = input_tensor.to(self.device, self.dtype)
+        if isinstance(input, np.ndarray):
+            input = torch.tensor(input)
 
-        output = self.likelihood(self.model(input_tensor))
+        with torch.inference_mode():
+            return self.model(input).cpu().numpy()
 
-        if isinstance(output, Distribution):
-            predicted_output = output.mean.cpu().numpy()
-            predicted_std = output.stddev.cpu().numpy()
-        else:
-            predicted_output = output.cpu().numpy()
-            predicted_std = np.zeros_like(predicted_output)
+    def predict_onnx(self, input: np.ndarray) -> np.ndarray:
+        """predict with an ONNX model
 
-        if predicted_output.ndim == 2:
-            argmax: np.ndarray = np.argmax(predicted_output, axis=1)
-        else:
-            argmax: np.ndarray = np.array([])
+        arguments
+        ---------
+        input : np.ndarray
+            the input data
 
-        return PredictionInfo(
-            value=predicted_output,
-            std=predicted_std,
-            argmax=argmax,
-        )
+        returns
+        -------
+        np.ndarray
+            the predicted values
+        """
+        return self.model.run(None, {"input": input})[0]  # type: ignore
 
-    def _load_model(self) -> None:
-        if "." in self.path:
-            raise ValueError("load path must be a directory, not a file path")
+    def serve(self,
+              host: str,
+              port: int,
+              pydantic_model: type,
+              endpoint: str = "/predict",
+              ) -> None:
+        """serve the model with FastAPI
 
-        self.model = Identity()
-        self.likelihood = Identity()
-        for model in os.listdir(self.path):
-            if os.path.basename(self.path.rstrip("/")).lower() == model.split(".")[0].lower():
-                self.model = torch.load(os.path.join(self.path, model), map_location=self.device)
-            elif "likelihood" in model.lower():
-                self.likelihood = torch.load(os.path.join(self.path, model), map_location=self.device)
+        arguments
+        ---------
+        host : str
+            the host to run the server on
+        port : int
+            the port to run the server on
+        pydantic_model : type
+            a Pydantic model for the input data
+        endpoint : str
+            the name of the endpoint to serve the model on
 
-        if isinstance(self.model, Identity):
-            raise ValueError("model not found")
+        raises
+        ------
+        ImportError
+            if the required libraries are not installed: uvicorn, pydantic, fastapi for the server and onnxruntime for ONNX models
+        TypeError
+            if pydantic_model is not a subclass of pydantic
+        """
+        try:
+            import uvicorn  # type: ignore
+            from pydantic import BaseModel  # type: ignore
+            from fastapi import FastAPI, HTTPException  # type: ignore
+        except ImportError:
+            print(
+                f"{ansi.RED}-> missing libraries for server{ansi.RESET}\n"
+                f"   |> this method is only available if you have uvicorn, pydantic, and fastapi installed\n"
+                f"   |> run: pip install uvicorn pydantic fastapi"
+            )
+            raise ImportError("missing libraries for server")
 
-        self.model.to(self.device, self.dtype)
-        self.likelihood.to(self.device, self.dtype)
+        if not issubclass(pydantic_model, BaseModel):
+            raise TypeError("pydantic_model must be a subclass of pydantic.BaseModel")
 
-        self.model.eval()
-        self.likelihood.eval()
+        app = FastAPI()
+
+        @app.post(endpoint)
+        async def predict(data: pydantic_model) -> dict:  # type: ignore
+            try:
+                input = np.array([list(data.dict().values())]).astype(np.float32)
+                output = self.predict(input)
+                return {"output": output.tolist()}
+
+            except Exception as e:
+                print(e)
+                raise HTTPException(status_code=500, detail=str(e))
+
+        print()
+        uvicorn.run(app, host=host, port=port)
