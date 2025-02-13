@@ -1,4 +1,4 @@
-# Catasta: Streamlined Model Experimentation
+# catasta: straightforward machine learning model experimentation
 
 <div align="center">
 <img style="width: 40%" src="assets/catasta_logo.svg">
@@ -8,22 +8,22 @@
 <!-- [![docs](https://badgen.net/badge/readthedocs/documentation/blue)](https://catasta.readthedocs.io/en/latest/) -->
 </div>
 
-_Catasta_ is a Python library designed to simplify the process of Machine Learning model experimentation. Optimization, training, evaluation and inference all in one place!
+_catasta_ is a python library designed to simplify the process of machine learning model experimentation. optimization, training, evaluation and inference all in one place!
 
 > [!WARNING]
-> :construction: _Catasta_ is in early development :construction:
+> :construction: _catasta_ is in early development :construction:
 > 
-> Expect breaking changes on every release until `v1.0.0` is reached.
+> expect breaking changes on every release until `v1.0.0` is reached.
 > 
-> The documentation is under development.
+> the documentation is under development.
 
 ---
 
-With _Catasta_, you can build a model like an _archway_... Let me explain:
+With _catasta_, you can build a model like an _archway_... let me explain:
 
-### Optimization
+### optimization
 
-First, set the foundations of the model with the `Foundation` class. This class uses the popular and supercool [optuna](https://github.com/optuna/optuna) library to optimize a model given a hyperparameter space and an objective function.
+first, set the foundations of the model with the `Foundation` class. this class uses the popular and supercool [optuna](https://github.com/optuna/optuna) library to optimize a model given a hyperparameter space and an objective function.
 
 ```python
 hp_space = {
@@ -50,13 +50,14 @@ foundation = Foundation(
 optimization_info = foundation.optimize()
 ```
 
-### Training
+### training
 
-Set the scaffolds of your model with the `Scaffold` class. This class integrates a model and a dataset for training and evaluation.
+set the scaffolds of your model with the `Scaffold` class. this class integrates a model and a dataset for training and evaluation.
 
 ```python
 model = FeedforwardRegressor(
-    context_length=32,
+    n_inputs=32,
+    n_outputs=1,
     hidden_dims=[8, 16, 8],
     dropout=0.0,
     use_layer_norm=True,
@@ -66,6 +67,8 @@ model = FeedforwardRegressor(
 dataset = CatastaDataset(
     root="path/to/dataset/",
     task="regression",
+    input_name="input",
+    output_name="output",
 )
 
 scaffold = Scaffold(
@@ -84,31 +87,65 @@ scaffold.train(
 info = scaffold.evaluate()
 ```
 
-### Inference
+### inference
 
-Your archway is finished with the `Archway` class. This class runs the inference of the model given its saved path.
+your archway is finished with the `Archway` class. this class runs the inference of the model given its saved path
 
 ```python
-archway = Archway("path/to/saved/model/")
+archway = Archway(
+    path= "path/to/saved/model.pt",
+)
 
-prediction = archway.predict(input)
+example_input = np.random.rand(1, 4).astype(np.float32)
+output = archway.predict(example_input)
 ```
 
-### Other modules
+the archway uses the `onnxruntime` library if a `.onnx` file is provided, but you must install manually `onnx` and `onnxruntime` to use this feature
 
-_Catasta_ also has different modules that facilitate model experimentation.
+```python
+archway = Archway(
+    path= "path/to/saved/model.onnx",
+)
 
-* `catasta.models` offers a variety of pre-implemente Machine Learning models. All models are **single-scripted**, so feel free to copy and paste them anywhere.
+example_input = np.random.rand(1, 4).astype(np.float32)
+output = archway.predict(example_input)
+```
+
+finally, the archway can also serve a model as a REST API using the `FastAPI` library. to use this feature, you must install `fastapi`, `pydantic`, and `uvicorn` manually
+
+```python
+archway = Archway(
+    path= "path/to/saved/model.pt",
+)
+
+class Data(BaseModel):
+    s0: float
+    s1: float
+    s2: float
+    s3: float
+
+archway.serve(
+    host="145.94.127.212",
+    port=8080,
+    pydantic_model=Data,
+)
+```
+
+### other modules
+
+_catasta_ also has different modules that facilitate model experimentation
+
+* `catasta.models` offers a variety of pre-implemented Machine Learning models. All models are **single-scripted**, so feel free to copy and paste them anywhere.
 
 * `catasta.transformations` let's you apply transformations to the data when its loaded to a dataset, such as window sliding, normalization...
 
 * `catasta.utils` has several functions that are useful for model optimization and training.
 
-## Installation
+## installation
 
 ### Install via pip
 
-Catasta is available as a PyPi package:
+_catasta_ is available as a PyPi package:
 
 ```sh
 pip install catasta
@@ -127,3 +164,7 @@ and install the dependencies
 ```sh
 pip install -r requirements.txt
 ```
+
+## documentation
+
+the documentation is under development, but you can check out some examples in the `examples` folder!
