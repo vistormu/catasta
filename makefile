@@ -1,7 +1,7 @@
 .ONESHELL:
 SHELL := /bin/zsh
 
-version = 0.4.1
+version = 0.4.2
 
 test:
 	@rm -rf .venv-test/lib/python3.13/site-packages/catasta
