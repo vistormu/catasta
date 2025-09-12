@@ -1,6 +1,7 @@
 # regressors
 from .gp_regressor import GPRegressor
 from .feedforward_regressor import FeedforwardRegressor
+from .multi_headed_feedforward_regressor import MultiHeadedFeedforwardRegressor
 from .transformer_regressor import TransformerRegressor
 from .transformer_fft_regressor import TransformerFFTRegressor
 from .multi_headed_transformer_regressor import MultiHeadedTransformerRegressor
