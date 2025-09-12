@@ -2,6 +2,7 @@ import platform
 import time
 import os
 import gc
+from typing import Any, Callable
 
 import numpy as np
 
@@ -224,7 +225,7 @@ class Scaffold:
         return epoch_loss.item()
 
     @torch.no_grad()
-    def evaluate(self, batch_size: int | None = None) -> EvalInfo:
+    def evaluate(self, batch_size: int | None = None, prediction_function: Callable[[Module, Any], Any] | None = None) -> EvalInfo:
         """Evaluate the model on the test set of the dataset.
 
         Arguments
@@ -248,27 +249,22 @@ class Scaffold:
             pin_memory=True if self.device.type == "cuda" else False,
         )
 
+        true_input = []
         true_output = []
         predicted_output = []
-        predicted_output_std = []
         for x, y in data_loader:
             x = x.to(self.device, self.input_dtype)
 
-            output = self.model(x)
+            output = self.model(x) if prediction_function is None else prediction_function(self.model, x)
+            true_input.append(x.cpu().numpy())
             true_output.append(y.cpu().numpy())
-
-            if isinstance(output, Distribution):
-                predicted_output.append(output.mean.cpu().numpy())
-                predicted_output_std.append(output.stddev.cpu().numpy())
-            else:
-                predicted_output.append(output.cpu().numpy())
-                predicted_output_std.append(np.zeros_like(output.cpu().numpy()))
+            predicted_output.append(output)
 
         return EvalInfo(
             task=self.task,
+            true_input=np.concatenate(true_input),
             true_output=np.concatenate(true_output),
             predicted_output=np.concatenate(predicted_output),
-            predicted_std=np.concatenate(predicted_output_std),
         )
 
     def save(self, path: str) -> None:

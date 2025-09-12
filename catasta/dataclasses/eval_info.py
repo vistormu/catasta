@@ -1,3 +1,4 @@
+from typing import Any
 import numpy as np
 
 from ..log import ansi
@@ -8,51 +9,51 @@ class EvalInfo:
 
     Attributes
     ----------
-    self.task : str
+    task : str
         The task type, either 'regression' or 'classification'.
-    self.true_output : np.ndarray
+    true_input : np.ndarray
+        The input used for the evaluation
+    true_output : np.ndarray
         The true output values.
-    self.predicted_output : np.ndarray
+    predicted_output : Any
         The predicted output values.
-    self.predicted_std : np.ndarray
-        The standard deviation of the predicted output values.
-    self.mae : float
+    mae : np.ndarray
         The mean absolute error. Only available for regression tasks.
-    self.mse : float
+    mse : np.ndarray
         The mean squared error. Only available for regression tasks.
-    self.rmse : float
+    rmse : np.ndarray
         The root mean squared error. Only available for regression tasks.
-    self.r2 : float
+    r2 : np.ndarray
         The R2 score. Only available for regression tasks.
-    self.confusion_matrix : np.ndarray
+    confusion_matrix : np.ndarray
         The confusion matrix. Only available for classification tasks.
-    self.tp : np.ndarray
+    tp : np.ndarray
         The true positive values. Only available for classification tasks.
-    self.fp : np.ndarray
+    fp : np.ndarray
         The false positive values. Only available for classification tasks.
-    self.fn : np.ndarray
+    fn : np.ndarray
         The false negative values. Only available for classification tasks.
-    self.tn : np.ndarray
+    tn : np.ndarray
         The true negative values. Only available for classification tasks.
-    self.accuracy : float
+    accuracy : float
         The accuracy score. Only available for classification tasks.
-    self.precision : float
+    precision : float
         The precision score. Only available for classification tasks.
-    self.recall : float
+    recall : float
         The recall score. Only available for classification tasks.
-    self.sensitivity : float
+    sensitivity : float
         The sensitivity score. Only available for classification tasks.
-    self.specificity : float
+    specificity : float
         The specificity score. Only available for classification tasks.
-    self.f1_score : float
+    f1_score : float
         The F1 score. Only available for classification tasks.
     """
 
     def __init__(self,
                  task: str,
+                 true_input: np.ndarray,
                  true_output: np.ndarray,
-                 predicted_output: np.ndarray,
-                 predicted_std: np.ndarray | None = None,
+                 predicted_output: Any,
                  n_classes: int | None = None
                  ) -> None:
         """
@@ -64,16 +65,20 @@ class EvalInfo:
             The true output values.
         predicted_output : np.ndarray
             The predicted output values.
-        predicted_std : np.ndarray, optional
-            The standard deviation of the predicted output values. If not provided, it is set to an array of zeros.
         n_classes : int, optional
             The number of classes in the classification task. If not provided, it is set to the number of unique classes.
         """
 
         self.task = task
+
+        self.true_input = true_input
         self.true_output = true_output
         self.predicted_output = predicted_output
-        self.predicted_std = predicted_std if predicted_std is not None else np.zeros_like(predicted_output)
+
+        try:
+            self.predicted_output = np.asarray(self.predicted_output)
+        except:
+            return
 
         if self.task == 'regression':
             self._calculate_regression_metrics(self.true_output, self.predicted_output)
@@ -83,10 +88,16 @@ class EvalInfo:
             raise ValueError('Invalid task type')
 
     def _calculate_regression_metrics(self, y: np.ndarray, y_pred: np.ndarray) -> None:
-        self.mae: float = np.mean(np.abs(y - y_pred)).astype(float)
-        self.mse: float = np.mean((y - y_pred)**2).astype(float)
-        self.rmse: float = np.sqrt(np.mean((y - y_pred)**2)).astype(float)
-        self.r2: float = 1 - np.sum((y - y_pred)**2) / np.sum((y - np.mean(y))**2).astype(float)
+        if y.ndim == 1:
+            y = y[:, np.newaxis]
+            y_pred = y_pred[:, np.newaxis]
+
+        self.mae: np.ndarray = np.mean(np.abs(y - y_pred), axis=0)
+        self.mse: np.ndarray = np.mean((y - y_pred) ** 2, axis=0)
+        self.rmse: np.ndarray = np.sqrt(self.mse)
+        ss_res = np.sum((y - y_pred) ** 2, axis=0)
+        ss_tot = np.sum((y - np.mean(y, axis=0)) ** 2, axis=0)
+        self.r2: np.ndarray = 1 - ss_res / ss_tot
 
     def _calculate_classification_metrics(self, y: np.ndarray, y_pred: np.ndarray, n_classes: int | None) -> None:
         y_pred = np.argmax(y_pred, axis=1)
@@ -118,11 +129,13 @@ class EvalInfo:
         return matrix
 
     def _regression_repr(self) -> str:
-        return f"\n{ansi.BOLD}{ansi.BLUE}-> regression metrics{ansi.RESET}\n" + \
-            f"   |> MAE:  {self.mae:.4f}\n" + \
-            f"   |> MSE:  {self.mse:.4f}\n" + \
-            f"   |> RMSE: {self.rmse:.4f}\n" + \
-            f"   |> R2:   {self.r2:.4f}"
+        return (
+            f"\n{ansi.BOLD}{ansi.BLUE}-> regression metrics{ansi.RESET}\n"
+            f"   |> MAE:  {np.array2string(self.mae, precision=4, floatmode='fixed')}\n"
+            f"   |> MSE:  {np.array2string(self.mse, precision=4, floatmode='fixed')}\n"
+            f"   |> RMSE: {np.array2string(self.rmse, precision=4, floatmode='fixed')}\n"
+            f"   |> R2:   {np.array2string(self.r2, precision=4, floatmode='fixed')}"
+        )
 
     def _classification_repr(self) -> str:
         return f"\n{ansi.BOLD}{ansi.BLUE}-> classification metrics{ansi.RESET}\n" + \
