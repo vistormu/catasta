@@ -3,6 +3,7 @@ from .gp_regressor import GPRegressor
 from .feedforward_regressor import FeedforwardRegressor
 from .transformer_regressor import TransformerRegressor
 from .transformer_fft_regressor import TransformerFFTRegressor
+from .multi_headed_transformer_regressor import MultiHeadedTransformerRegressor
 from .mamba_regressor import MambaRegressor
 from .mamba_fft_regressor import MambaFFTRegressor
 from .gp_head_regressor import GPHeadRegressor
