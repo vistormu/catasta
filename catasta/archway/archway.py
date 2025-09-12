@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 import numpy as np
 
@@ -154,7 +155,7 @@ class Archway:
 
         self.predict = self.predict_torch if isinstance(self.model, Module) else self.predict_onnx
 
-    def predict_torch(self, input: np.ndarray | Tensor) -> np.ndarray:
+    def predict_torch(self, input: np.ndarray | Tensor) -> Any:
         """predict with a PyTorch model
 
         arguments
@@ -168,10 +169,10 @@ class Archway:
             the predicted values
         """
         if isinstance(input, np.ndarray):
-            input = torch.tensor(input)
+            input = torch.tensor(input).to(self.device, self.dtype)
 
         with torch.inference_mode():
-            return self.model(input).cpu().numpy()
+            return self.model(input)
 
     def predict_onnx(self, input: np.ndarray) -> np.ndarray:
         """predict with an ONNX model
