@@ -15,10 +15,11 @@ from ..log import ansi
 class Foundation:
     def __init__(self, *,
                  hyperparameter_space: dict[str, tuple],
-                 objective_function: Callable[[dict], float],
+                 objective_function: Callable[[dict, dict], float],
                  sampler: str,
                  n_trials: int,
                  direction: str,
+                 objective_extra_parameters: dict = {},
                  use_secretary: bool = False,
                  catch_exceptions: bool = False,
                  verbose: bool = True,
@@ -29,8 +30,10 @@ class Foundation:
         ---------
         hyperparameter_space : dict[str, tuple]
             Dictionary containing the hyperparameters to optimize. The keys are the hyperparameter names and the values are tuples containing the hyperparameters search space.
-        objective_function : Callable[[dict], float]
-            Objective function to optimize. It receives a dictionary containing the hyperparameters as input and returns a float value.
+        objective_function : Callable[[dict, dict], float]
+            Objective function to optimize. The function should contain two dictionaries as parameters: the first one contains the parameters being optimized, and the second one the `objective_extra_parameters` dictionary.
+        objective_extra_parameters : dict
+            the extra parameters to include every function call to the objective function
         sampler : str
             Name of the sampler to use. Valid values are "random", "rs", "tpe", "gp", and "bogp".
         n_trials : int
@@ -52,6 +55,7 @@ class Foundation:
         """
         self.hyperparameter_space = hyperparameter_space
         self.objective_function = objective_function
+        self.objective_extra_parameters = objective_extra_parameters
         self.sampler = get_sampler(sampler)
         self.n_trials = n_trials
         self.direction = direction
@@ -93,19 +97,19 @@ class Foundation:
             params = {name: trial.suggest_categorical(name, values) for name, values in self.hyperparameter_space.items()}
 
             try:
-                metric = self.objective_function(params)
+                metric = self.objective_function(params, self.objective_extra_parameters)
             except Exception as e:
                 if isinstance(e, KeyboardInterrupt):
                     print(
                         f"{ansi.BOLD}{ansi.YELLOW}-> optimization interrupted\n"
-                        f"   |> trial: {trial.number+1}{ansi.RESET}"
+                        f"   |> trial: {trial.number + 1}{ansi.RESET}"
                     )
                     raise e
 
                 if self.catch_exceptions:
                     print(
                         f"{ansi.BOLD}{ansi.RED}-> exception caught\n"
-                        f"   |> trial: {trial.number+1}\n"
+                        f"   |> trial: {trial.number + 1}\n"
                         f"   |> error: {e}{ansi.RESET}"
                     )
                     metric = np.inf if self.direction == "minimize" else -np.inf
@@ -117,13 +121,13 @@ class Foundation:
         optimization_logger = OptimizationLogger(self.n_trials)
 
         def on_trial_complete(study: Study, trial: FrozenTrial) -> None:
-            if self.use_secretary and trial.number > self.n_trials/np.e and study.best_trial.number == trial.number:
+            if self.use_secretary and trial.number > self.n_trials / np.e and study.best_trial.number == trial.number:
                 study.stop()
 
             optimization_logger.log(
-                trial_number=trial.number+1,
+                trial_number=trial.number + 1,
                 metric=trial.value if trial.value is not None else 0.0,  # TMP
-                best_trial_number=study.best_trial.number+1,
+                best_trial_number=study.best_trial.number + 1,
                 best_metric=study.best_value,
                 time_elapsed=trial.duration.total_seconds() if trial.duration is not None else 0.0,  # TMP
             )
@@ -159,18 +163,18 @@ class Foundation:
                 metric = trial.value
 
             history.append(TrialInfo(
-                number=trial.number+1,
+                number=trial.number + 1,
                 hyperparameters=trial.params,
                 metric=metric,
-                datetime_start=trial.datetime_start,
-                datetime_end=trial.datetime_complete,
-                duration=trial.duration.total_seconds(),
+                datetime_start=trial.datetime_start, # type: ignore
+                datetime_end=trial.datetime_complete,  # type: ignore
+                duration=trial.duration.total_seconds(),  # type: ignore
             ))
 
         return OptimizationInfo(
             best_hyperparameters=study.best_params,
             best_metric=study.best_value,
-            best_trial_number=study.best_trial.number+1,
+            best_trial_number=study.best_trial.number + 1,
             datetime_start=first_datetime,
             datetime_end=last_datetime,
             duration=last_datetime.timestamp() - first_datetime.timestamp(),
