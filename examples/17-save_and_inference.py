@@ -36,7 +36,7 @@ def train() -> None:
     )
     print(train_info)
 
-    info = scaffold.evaluate()
+    info = scaffold.evaluate(prediction_function=lambda model, x: model(x).cpu().numpy())
     print(info)
 
     scaffold.save("models/fnn.pt")
@@ -52,7 +52,7 @@ def inference_with_torch() -> None:
     start = time.time()
     output = archway.predict(example_input)
     print(f"Output: {output}")
-    print(f"Elapsed time: {(time.time() - start)*1000:.2f} ms")
+    print(f"Elapsed time: {(time.time() - start) * 1000:.2f} ms")
 
 
 def inference_with_onnx() -> None:
@@ -65,10 +65,10 @@ def inference_with_onnx() -> None:
     start = time.time()
     output = archway.predict(example_input)
     print(f"Output: {output}")
-    print(f"Elapsed time: {(time.time() - start)*1000:.2f} ms")
+    print(f"Elapsed time: {(time.time() - start) * 1000:.2f} ms")
 
 
 if __name__ == '__main__':
-    # train()
+    train()
     inference_with_torch()
     inference_with_onnx()

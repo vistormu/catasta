@@ -30,7 +30,7 @@ def main() -> None:
         lr=1e-3,
     )
 
-    eval_info: EvalInfo = scaffold.evaluate(batch_size=32)
+    eval_info: EvalInfo = scaffold.evaluate(batch_size=32, prediction_function=lambda model, x: model(x).cpu().numpy())
     print(eval_info)
 
 

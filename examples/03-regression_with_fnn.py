@@ -33,7 +33,7 @@ def single_output() -> None:
     )
     print(train_info)
 
-    info = scaffold.evaluate()
+    info = scaffold.evaluate(prediction_function=lambda model, x: model(x).cpu().numpy())
     print(info)
 
 
@@ -68,7 +68,7 @@ def multi_output() -> None:
     )
     print(train_info)
 
-    info = scaffold.evaluate()
+    info = scaffold.evaluate(prediction_function=lambda model, x: model(x).cpu().numpy())
     print(info)
 
 
