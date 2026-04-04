@@ -71,4 +71,7 @@ def inference_with_onnx() -> None:
 if __name__ == '__main__':
     # train()
     inference_with_torch()
-    inference_with_onnx()
+    try:
+        inference_with_onnx()
+    except ImportError:
+        print("onnxruntime is not installed, skipping onnx inference example")

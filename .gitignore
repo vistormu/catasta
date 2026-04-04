@@ -6,5 +6,6 @@
 /tests/models/
 **/saved_models/
 /.venv/
+/.venv-macos/
 /.venv-test/
 uv.lock

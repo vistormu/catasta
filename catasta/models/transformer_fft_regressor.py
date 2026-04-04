@@ -17,6 +17,17 @@ from einops import rearrange, reduce
 from einops.layers.torch import Rearrange
 
 
+def _validate_n_patches(n_inputs: int, n_patches: int) -> int:
+    if n_patches <= 0:
+        raise ValueError("n_patches must be greater than 0")
+    if n_patches > n_inputs:
+        raise ValueError("n_patches cannot be greater than n_inputs")
+    if n_inputs % n_patches != 0:
+        raise ValueError(f"sequence length {n_inputs} must be divisible by n_patches {n_patches}")
+
+    return n_inputs // n_patches
+
+
 def posemb_sincos_1d(patches: Tensor, temperature: int = 10000) -> Tensor:
     n: int = patches.shape[1]
     d_model: int = patches.shape[2]
@@ -152,11 +163,9 @@ class TransformerFFTRegressor(Module):
                  layer_norm: bool = False,
                  ) -> None:
         super().__init__()
-        patch_size: int = n_inputs // n_patches
+        self.n_outputs = n_outputs
+        patch_size: int = _validate_n_patches(n_inputs, n_patches)
         freq_patch_dim: int = patch_size * 2
-
-        if n_inputs % patch_size != 0:
-            raise ValueError(f"sequence length {n_inputs} must be divisible by patch size {patch_size}")
 
         self.to_patch_embedding = Sequential(
             Rearrange('b (n p) -> b n p', p=patch_size),
@@ -209,7 +218,5 @@ class TransformerFFTRegressor(Module):
         x = self.dropout(x)
 
         x = reduce(x, 'b n d -> b d', self.pooling) if self.pooling != "concat" else rearrange(x, 'b n d -> b (n d)')
-
-        x = self.linear_head(x).squeeze()
-
-        return x
+        y = self.linear_head(x)
+        return y.squeeze(-1) if self.n_outputs == 1 else y

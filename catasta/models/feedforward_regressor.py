@@ -58,12 +58,13 @@ class FeedforwardRegressor(Module):
             activation function. options: relu, sigmoid, tanh, gelu
         """
         super().__init__()
+        self.n_outputs = n_outputs
 
         layers: list[Module] = []
 
         # no hidden layers
         if not hidden_dims:
-            self.net = Sequential(Linear(n_inputs, 1))
+            self.net = Sequential(Linear(n_inputs, n_outputs))
             return
 
         # hidden layers
@@ -95,4 +96,5 @@ class FeedforwardRegressor(Module):
     def forward(self, x: Tensor) -> Tensor:
         x = self.net(x)
 
-        return x.squeeze()
+        n_outputs = getattr(self, "n_outputs", 1)
+        return x.squeeze(-1) if n_outputs == 1 else x

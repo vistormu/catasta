@@ -1,11 +1,18 @@
 # regressors
 from .gp_regressor import GPRegressor
 from .feedforward_regressor import FeedforwardRegressor
+from .cnn_regressor import CNNRegressor
+from .lstm_regressor import LSTMRegressor
+from .tcn_regressor import TCNRegressor
+from .resnet1d_regressor import ResNet1DRegressor
+from .multi_headed_feedforward_regressor import MultiHeadedFeedforwardRegressor
 from .transformer_regressor import TransformerRegressor
 from .transformer_fft_regressor import TransformerFFTRegressor
+from .multi_headed_transformer_regressor import MultiHeadedTransformerRegressor
 from .mamba_regressor import MambaRegressor
 from .mamba_fft_regressor import MambaFFTRegressor
 from .gp_head_regressor import GPHeadRegressor
+from .gp_binary_classifier import GPBinaryClassifier, PGLikelihood
 
 # classifiers
 from .feedforward_image_classifier import FeedforwardImageClassifier

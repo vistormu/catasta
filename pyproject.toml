@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "catasta"
-version = "0.4.2"
+version = "0.5.2"
 authors = [
-  { name="Vistor" },
+  { name="vistor" },
 ]
 description = "_Catasta_ is a Python library designed to simplify the process of Machine Learning model experimentation. Optimization, training, evaluation and inference all in one place!"
 readme = "README.md"
@@ -30,7 +30,25 @@ dependencies = [
 [tool.hatch.build.targets.wheel]
 packages = ["catasta"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "catasta",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+[tool.hatch.build]
+exclude = [
+    "/.venv/",
+    "/.venv-test/",
+    "/.venv-macos/",
+    "/dist/",
+    "/build/",
+    "*.egg-info",
+    "**/__pycache__/",
+]
+
 [project.urls]
 Homepage = "https://github.com/vistormu/catasta"
 Issues = "https://github.com/vistormu/catasta/issues"
-

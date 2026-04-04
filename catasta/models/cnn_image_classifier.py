@@ -107,8 +107,9 @@ class CNNImageClassifier(Module):
             self.dense_layers.append(activation_function)
             self.dense_layers.append(dropout_layer)
 
+        linear_in_features = prev_neurons if len(feedforward_dims) == 0 else feedforward_dims[-1]
         linear = Linear(
-            in_features=feedforward_dims[-1],
+            in_features=linear_in_features,
             out_features=n_classes,
         )
 

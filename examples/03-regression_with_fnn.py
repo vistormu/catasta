@@ -1,6 +1,16 @@
+import os
+
 from catasta import Scaffold, Dataset
 from catasta.models import FeedforwardRegressor
 from catasta.dataclasses import TrainInfo
+
+
+def _is_smoke() -> bool:
+    return os.getenv("CATASTA_SMOKE", "0") == "1"
+
+
+def _epochs(default: int, smoke: int) -> int:
+    return smoke if _is_smoke() else default
 
 
 def single_output() -> None:
@@ -27,7 +37,7 @@ def single_output() -> None:
     )
 
     train_info: TrainInfo = scaffold.train(
-        epochs=1000,
+        epochs=_epochs(1000, 5),
         batch_size=128,
         lr=1e-3,
     )
@@ -62,7 +72,7 @@ def multi_output() -> None:
     )
 
     train_info: TrainInfo = scaffold.train(
-        epochs=5000,
+        epochs=_epochs(5000, 5),
         batch_size=128,
         lr=1e-3,
     )
@@ -74,4 +84,5 @@ def multi_output() -> None:
 
 if __name__ == '__main__':
     single_output()
-    multi_output()
+    if not _is_smoke():
+        multi_output()

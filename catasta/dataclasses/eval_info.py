@@ -1,142 +1,142 @@
+from typing import Any
+
 import numpy as np
 
 from ..log import ansi
 
 
 class EvalInfo:
-    """A class that calculates and stores evaluation metrics for regression and classification tasks.
-
-    Attributes
-    ----------
-    self.task : str
-        The task type, either 'regression' or 'classification'.
-    self.true_output : np.ndarray
-        The true output values.
-    self.predicted_output : np.ndarray
-        The predicted output values.
-    self.predicted_std : np.ndarray
-        The standard deviation of the predicted output values.
-    self.mae : float
-        The mean absolute error. Only available for regression tasks.
-    self.mse : float
-        The mean squared error. Only available for regression tasks.
-    self.rmse : float
-        The root mean squared error. Only available for regression tasks.
-    self.r2 : float
-        The R2 score. Only available for regression tasks.
-    self.confusion_matrix : np.ndarray
-        The confusion matrix. Only available for classification tasks.
-    self.tp : np.ndarray
-        The true positive values. Only available for classification tasks.
-    self.fp : np.ndarray
-        The false positive values. Only available for classification tasks.
-    self.fn : np.ndarray
-        The false negative values. Only available for classification tasks.
-    self.tn : np.ndarray
-        The true negative values. Only available for classification tasks.
-    self.accuracy : float
-        The accuracy score. Only available for classification tasks.
-    self.precision : float
-        The precision score. Only available for classification tasks.
-    self.recall : float
-        The recall score. Only available for classification tasks.
-    self.sensitivity : float
-        The sensitivity score. Only available for classification tasks.
-    self.specificity : float
-        The specificity score. Only available for classification tasks.
-    self.f1_score : float
-        The F1 score. Only available for classification tasks.
-    """
-
-    def __init__(self,
-                 task: str,
-                 true_output: np.ndarray,
-                 predicted_output: np.ndarray,
-                 predicted_std: np.ndarray | None = None,
-                 n_classes: int | None = None
-                 ) -> None:
-        """
-        Parameters
-        ----------
-        task : str
-            The task type, either 'regression' or 'classification'.
-        true_output : np.ndarray
-            The true output values.
-        predicted_output : np.ndarray
-            The predicted output values.
-        predicted_std : np.ndarray, optional
-            The standard deviation of the predicted output values. If not provided, it is set to an array of zeros.
-        n_classes : int, optional
-            The number of classes in the classification task. If not provided, it is set to the number of unique classes.
-        """
-
+    def __init__(
+        self,
+        task: str,
+        true_output: np.ndarray,
+        predicted_output: Any,
+        true_input: np.ndarray | None = None,
+        n_classes: int | None = None,
+    ) -> None:
         self.task = task
-        self.true_output = true_output
-        self.predicted_output = predicted_output
-        self.predicted_std = predicted_std if predicted_std is not None else np.zeros_like(predicted_output)
+        self.true_input = None if true_input is None else np.asarray(true_input)
+        self.true_output = np.asarray(true_output)
+        self.predicted_output = np.asarray(predicted_output)
 
-        if self.task == 'regression':
+        if self.task == "regression":
             self._calculate_regression_metrics(self.true_output, self.predicted_output)
-        elif self.task == 'classification':
+        elif self.task in ("classification", "signal_classification"):
             self._calculate_classification_metrics(self.true_output, self.predicted_output, n_classes)
         else:
-            raise ValueError('Invalid task type')
+            raise ValueError("Invalid task type")
+
+    @staticmethod
+    def _safe_divide(numerator: np.ndarray, denominator: np.ndarray) -> np.ndarray:
+        result = np.zeros_like(numerator, dtype=float)
+        np.divide(numerator, denominator, out=result, where=denominator != 0)
+        return result
 
     def _calculate_regression_metrics(self, y: np.ndarray, y_pred: np.ndarray) -> None:
-        self.mae: float = np.mean(np.abs(y - y_pred)).astype(float)
-        self.mse: float = np.mean((y - y_pred)**2).astype(float)
-        self.rmse: float = np.sqrt(np.mean((y - y_pred)**2)).astype(float)
-        self.r2: float = 1 - np.sum((y - y_pred)**2) / np.sum((y - np.mean(y))**2).astype(float)
+        if y.ndim == 1:
+            y = y[:, np.newaxis]
+        if y_pred.ndim == 1:
+            y_pred = y_pred[:, np.newaxis]
+
+        if y.shape != y_pred.shape and y.size == y_pred.size:
+            y_pred = y_pred.reshape(y.shape)
+
+        self.mae = np.mean(np.abs(y - y_pred), axis=0)
+        self.mse = np.mean((y - y_pred) ** 2, axis=0)
+        self.rmse = np.sqrt(self.mse)
+
+        ss_res = np.sum((y - y_pred) ** 2, axis=0)
+        ss_tot = np.sum((y - np.mean(y, axis=0)) ** 2, axis=0)
+        raw_r2 = self._safe_divide(ss_tot - ss_res, ss_tot)
+        self.r2 = np.where(ss_tot == 0, 0.0, raw_r2)
+
+        if self.r2.size == 1:
+            self.r2 = float(self.r2.item())  # type: ignore[assignment]
 
     def _calculate_classification_metrics(self, y: np.ndarray, y_pred: np.ndarray, n_classes: int | None) -> None:
-        y_pred = np.argmax(y_pred, axis=1)
-        self.confusion_matrix: np.ndarray = self._compute_confusion_matrix(y, y_pred, n_classes)
+        y_true = np.asarray(y).reshape(-1)
+        predictions = np.asarray(y_pred)
 
-        self.tp: np.ndarray = np.diag(self.confusion_matrix)
-        self.fp: np.ndarray = np.sum(self.confusion_matrix, axis=0) - self.tp
-        self.fn: np.ndarray = np.sum(self.confusion_matrix, axis=1) - self.tp
-        self.tn: np.ndarray = np.sum(self.confusion_matrix) - (self.tp + self.fp + self.fn)
+        if predictions.ndim > 1:
+            y_labels = np.argmax(predictions, axis=1)
+        elif predictions.ndim == 1:
+            y_labels = predictions
+        else:
+            raise ValueError("predicted_output must be a 1D label array or a 2D logits/probabilities array")
 
-        tp: int = np.sum(self.tp)
-        fp: int = np.sum(self.fp)
-        fn: int = np.sum(self.fn)
-        tn: int = np.sum(self.tn)
+        y_labels = np.asarray(y_labels).reshape(-1)
+        if y_true.shape[0] != y_labels.shape[0]:
+            raise ValueError("true_output and predicted_output must contain the same number of samples")
 
-        self.accuracy: float = (tp + tn) / (tp + fp + fn + tn)
-        self.precision: float = tp / (tp + fp)
-        self.recall = self.sensitivity = tp / (tp + fn)
-        self.specificity: float = tn / (tn + fp)
-        self.f1_score: float = 2 * (self.precision * self.recall) / (self.precision + self.recall)
+        if not np.all(np.equal(y_true, y_true.astype(int))):
+            raise ValueError("true labels must be integer class ids")
+        if not np.all(np.equal(y_labels, y_labels.astype(int))):
+            raise ValueError("predicted labels must be integer class ids")
 
-    def _compute_confusion_matrix(self, y: np.ndarray, y_pred: np.ndarray, n_classes: int | None) -> np.ndarray:
-        classes: int = len(np.unique(y)) if n_classes is None else n_classes
+        y_true = y_true.astype(int)
+        y_labels = y_labels.astype(int)
 
-        matrix: np.ndarray = np.zeros((classes, classes), dtype=int)
+        if n_classes is None:
+            n_classes = int(max(np.max(y_true), np.max(y_labels))) + 1 if y_true.size else 0
+        if n_classes <= 0:
+            raise ValueError("n_classes must be a positive integer")
+
+        self.confusion_matrix = self._compute_confusion_matrix(y_true, y_labels, n_classes)
+
+        self.tp = np.diag(self.confusion_matrix).astype(float)
+        self.fp = (np.sum(self.confusion_matrix, axis=0) - self.tp).astype(float)
+        self.fn = (np.sum(self.confusion_matrix, axis=1) - self.tp).astype(float)
+        self.tn = (np.sum(self.confusion_matrix) - (self.tp + self.fp + self.fn)).astype(float)
+
+        total = float(np.sum(self.confusion_matrix))
+        self.accuracy = float(np.sum(self.tp) / total) if total > 0 else 0.0
+
+        precision_per_class = self._safe_divide(self.tp, self.tp + self.fp)
+        recall_per_class = self._safe_divide(self.tp, self.tp + self.fn)
+        specificity_per_class = self._safe_divide(self.tn, self.tn + self.fp)
+        f1_per_class = self._safe_divide(2 * precision_per_class * recall_per_class, precision_per_class + recall_per_class)
+
+        self.precision = float(np.mean(precision_per_class))
+        self.recall = float(np.mean(recall_per_class))
+        self.sensitivity = self.recall
+        self.specificity = float(np.mean(specificity_per_class))
+        self.f1_score = float(np.mean(f1_per_class))
+
+    def _compute_confusion_matrix(self, y: np.ndarray, y_pred: np.ndarray, classes: int) -> np.ndarray:
+        if np.any((y < 0) | (y >= classes)):
+            raise ValueError(f"true label out of range for n_classes={classes}")
+        if np.any((y_pred < 0) | (y_pred >= classes)):
+            raise ValueError(f"predicted label out of range for n_classes={classes}")
+
+        matrix = np.zeros((classes, classes), dtype=int)
         for true, pred in zip(y, y_pred):
-            matrix[true, pred] += 1
+            matrix[int(true), int(pred)] += 1
 
         return matrix
 
     def _regression_repr(self) -> str:
-        return f"\n{ansi.BOLD}{ansi.BLUE}-> regression metrics{ansi.RESET}\n" + \
-            f"   |> MAE:  {self.mae:.4f}\n" + \
-            f"   |> MSE:  {self.mse:.4f}\n" + \
-            f"   |> RMSE: {self.rmse:.4f}\n" + \
-            f"   |> R2:   {self.r2:.4f}"
+        return (
+            f"\n{ansi.BOLD}{ansi.BLUE}-> regression metrics{ansi.RESET}\n"
+            f"   |> MAE:  {np.array2string(np.asarray(self.mae), precision=4, floatmode='fixed')}\n"
+            f"   |> MSE:  {np.array2string(np.asarray(self.mse), precision=4, floatmode='fixed')}\n"
+            f"   |> RMSE: {np.array2string(np.asarray(self.rmse), precision=4, floatmode='fixed')}\n"
+            f"   |> R2:   {np.array2string(np.asarray(self.r2), precision=4, floatmode='fixed')}"
+        )
 
     def _classification_repr(self) -> str:
-        return f"\n{ansi.BOLD}{ansi.BLUE}-> classification metrics{ansi.RESET}\n" + \
-            f"   |> accuracy:    {self.accuracy:.4f}\n" + \
-            f"   |> precision:   {self.precision:.4f}\n" + \
-            f"   |> recall:      {self.recall:.4f}\n" + \
-            f"   |> sensitivity: {self.sensitivity:.4f}\n" + \
-            f"   |> specificity: {self.specificity:.4f}\n" + \
+        return (
+            f"\n{ansi.BOLD}{ansi.BLUE}-> classification metrics{ansi.RESET}\n"
+            f"   |> accuracy:    {self.accuracy:.4f}\n"
+            f"   |> precision:   {self.precision:.4f}\n"
+            f"   |> recall:      {self.recall:.4f}\n"
+            f"   |> sensitivity: {self.sensitivity:.4f}\n"
+            f"   |> specificity: {self.specificity:.4f}\n"
             f"   |> f1 score:    {self.f1_score:.4f}"
+        )
 
     def __repr__(self) -> str:
-        if self.task == 'regression':
+        if self.task == "regression":
             return self._regression_repr()
-        elif self.task == 'classification':
+        if self.task in ("classification", "signal_classification"):
             return self._classification_repr()
-        else:
-            raise ValueError('Invalid task type')
+        raise ValueError("Invalid task type")

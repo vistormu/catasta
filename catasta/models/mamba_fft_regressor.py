@@ -18,6 +18,17 @@ from torch.fft import fft
 from einops.layers.torch import Rearrange
 
 
+def _validate_n_patches(n_inputs: int, n_patches: int) -> int:
+    if n_patches <= 0:
+        raise ValueError("n_patches must be greater than 0")
+    if n_patches > n_inputs:
+        raise ValueError("n_patches cannot be greater than n_inputs")
+    if n_inputs % n_patches != 0:
+        raise ValueError(f"sequence length {n_inputs} must be divisible by n_patches {n_patches}")
+
+    return n_inputs // n_patches
+
+
 class ResidualBlock(Module):
     def __init__(self, *,
                  d_model: int,
@@ -183,11 +194,9 @@ class MambaFFTRegressor(Module):
                  bias: bool = False,
                  ) -> None:
         super().__init__()
+        self.n_outputs = n_outputs
 
-        patch_size: int = n_inputs // n_patches
-
-        if n_inputs % patch_size != 0:
-            raise ValueError(f"sequence length {n_inputs} must be divisible by patch size {patch_size}")
+        patch_size: int = _validate_n_patches(n_inputs, n_patches)
 
         freq_patch_dim: int = patch_size*2
 
@@ -242,7 +251,5 @@ class MambaFFTRegressor(Module):
 
         x = self.norm_f(x)
         x = x.mean(dim=1)
-
-        x = self.linear_head(x).squeeze()
-
-        return x
+        y = self.linear_head(x)
+        return y.squeeze(-1) if self.n_outputs == 1 else y

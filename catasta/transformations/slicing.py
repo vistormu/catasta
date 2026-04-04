@@ -5,6 +5,9 @@ from .transformation import Transformation
 
 class Slicing(Transformation):
     def __init__(self, amount: int, end: str) -> None:
+        if amount < 0:
+            raise ValueError("amount must be non-negative")
+
         self.amount: int = amount
         self.end: str = end
 
@@ -12,6 +15,8 @@ class Slicing(Transformation):
         if self.end == "left":
             return x[self.amount:]
         elif self.end == "right":
+            if self.amount == 0:
+                return x
             return x[:-self.amount]
         else:
             raise ValueError("Unknown slicing end")

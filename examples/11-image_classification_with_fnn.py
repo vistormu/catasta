@@ -1,6 +1,12 @@
+import os
+
 from catasta import Scaffold, Dataset
 from catasta.models import FeedforwardImageClassifier
 from catasta.dataclasses import EvalInfo
+
+
+def _epochs(default: int, smoke: int) -> int:
+    return smoke if os.getenv("CATASTA_SMOKE", "0") == "1" else default
 
 
 def main() -> None:
@@ -25,7 +31,7 @@ def main() -> None:
     )
 
     scaffold.train(
-        epochs=100,
+        epochs=_epochs(100, 2),
         batch_size=128,
         lr=1e-3,
     )

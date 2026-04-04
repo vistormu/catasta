@@ -116,7 +116,8 @@ def _file_based_regression_split(dataset: str,
                                  val_split: float,
                                  test_split: float,
                                  ) -> None:
-    for file in os.listdir(dataset):
+    files = [file for file in os.listdir(dataset) if file.lower().endswith(".csv")]
+    for file in files:
         file_path = os.path.join(dataset, file)
         df = pd.read_csv(file_path)
         n_samples = len(df)
@@ -171,16 +172,19 @@ def _classification_split(dataset: str,
         test = images[val_index:test_index] if test_split else []
 
         train_path = os.path.join(destination, "training", class_)
+        os.makedirs(train_path, exist_ok=True)
         for img in train:
             train_img = os.path.join(train_path, os.path.basename(img))
             shutil.copyfile(img, train_img)
 
         val_path = os.path.join(destination, "validation", class_)
+        os.makedirs(val_path, exist_ok=True)
         for img in val:
             val_img = os.path.join(val_path, os.path.basename(img))
             shutil.copyfile(img, val_img)
 
         test_path = os.path.join(destination, "testing", class_)
+        os.makedirs(test_path, exist_ok=True)
         for img in test:
             test_img = os.path.join(test_path, os.path.basename(img))
             shutil.copyfile(img, test_img)

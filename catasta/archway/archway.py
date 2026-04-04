@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 import numpy as np
 
@@ -40,6 +41,12 @@ def _get_dtype(dtype: str) -> torch.dtype:
 
 
 def _compile_model(model: Module, compile_method: str, **kwargs) -> Module:
+    def _get_quantization_params() -> tuple[set[type[Module]], torch.dtype]:
+        if "layers" not in kwargs or "dtype" not in kwargs:
+            raise ValueError("quantization_kwargs must include both 'layers' and 'dtype'")
+
+        return set(kwargs["layers"]), _get_dtype(kwargs["dtype"])
+
     match compile_method:
         case "none":
             return model
@@ -55,10 +62,11 @@ def _compile_model(model: Module, compile_method: str, **kwargs) -> Module:
             backend = "qnnpack" if "arm" in platform.processor().lower() else "fbgemm"
             torch.backends.quantized.engine = backend
 
+            layers, dtype = _get_quantization_params()
             return torch.quantization.quantize_dynamic(
                 model,
-                {*kwargs["layers"]},
-                dtype=_get_dtype(kwargs["dtype"]),
+                layers,
+                dtype=dtype,
             )
 
         case "torchscript_quantized_optimized":
@@ -66,13 +74,9 @@ def _compile_model(model: Module, compile_method: str, **kwargs) -> Module:
             backend = "qnnpack" if "arm" in platform.processor().lower() else "fbgemm"
             torch.backends.quantized.engine = backend
 
-            return torch.jit.optimize_for_inference(
-                torch.quantization.quantize_dynamic(
-                    model,
-                    {*kwargs["layers"]},
-                    dtype=kwargs["dtype"],
-                )
-            )
+            layers, dtype = _get_quantization_params()
+            quantized_model = torch.quantization.quantize_dynamic(model, layers, dtype=dtype)
+            return torch.jit.optimize_for_inference(torch.jit.script(quantized_model))
 
         case _:
             raise ValueError("Invalid compile method")
@@ -126,7 +130,7 @@ class Archway:
                  compile_method: str = "none",
                  device: str = "auto",
                  dtype: str = "float32",
-                 quantization_kwargs: dict = {},
+                 quantization_kwargs: dict | None = None,
                  ) -> None:
         """initialize the Archway class
 
@@ -149,12 +153,13 @@ class Archway:
         self.device = _get_device(device)
         self.dtype = _get_dtype(dtype)
 
+        quantization_kwargs = {} if quantization_kwargs is None else quantization_kwargs
         self.model: Module = _load_model(path, self.device, self.dtype)
         self.model = _compile_model(self.model, compile_method, **quantization_kwargs)
 
         self.predict = self.predict_torch if isinstance(self.model, Module) else self.predict_onnx
 
-    def predict_torch(self, input: np.ndarray | Tensor) -> np.ndarray:
+    def predict_torch(self, input: np.ndarray | Tensor) -> Any:
         """predict with a PyTorch model
 
         arguments
@@ -168,10 +173,14 @@ class Archway:
             the predicted values
         """
         if isinstance(input, np.ndarray):
-            input = torch.tensor(input)
+            input = torch.from_numpy(input).to(self.device, self.dtype)
+        elif isinstance(input, Tensor):
+            input = input.to(self.device, self.dtype)
+        else:
+            raise TypeError("input must be a numpy.ndarray or torch.Tensor")
 
         with torch.inference_mode():
-            return self.model(input).cpu().numpy()
+            return self.model(input)
 
     def predict_onnx(self, input: np.ndarray) -> np.ndarray:
         """predict with an ONNX model

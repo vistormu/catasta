@@ -37,6 +37,12 @@ class Normalization(Transformation):
         """
         self.norm_tech: str = norm_tech
 
+    @staticmethod
+    def _safe_divide(numerator: np.ndarray, denominator: float, eps: float = 1e-12) -> np.ndarray:
+        if abs(float(denominator)) <= eps:
+            return np.zeros_like(numerator, dtype=float)
+        return numerator / denominator
+
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
         Apply normalization technique to the input data
@@ -51,50 +57,63 @@ class Normalization(Transformation):
         np.ndarray
             Normalized data
         """
+        x = np.asarray(x, dtype=float)
+
         match self.norm_tech:
             case "arctan":
                 return np.arctan(x)
             case "boxcox":
                 return np.sign(x) * np.power(np.abs(x), 1 / 2)
             case "decimal":
-                return x / 10 ** np.ceil(np.log10(np.max(np.abs(x))))
+                max_abs = float(np.max(np.abs(x)))
+                if max_abs <= 0.0:
+                    return np.zeros_like(x, dtype=float)
+                scale = 10 ** np.ceil(np.log10(max_abs))
+                return self._safe_divide(x, float(scale))
             case "logistic":
                 return 1 / (1 + np.exp(-x))
             case "mad":
-                return x / np.median(np.abs(x - np.median(x)))
+                mad = float(np.median(np.abs(x - np.median(x))))
+                return self._safe_divide(x, mad)
             case "max":
-                return x / np.max(x)
+                return self._safe_divide(x, float(np.max(x)))
             case "maxabs":
-                return x / np.max(np.abs(x))
+                return self._safe_divide(x, float(np.max(np.abs(x))))
             case "maxmin":
-                return x / (np.max(x) - np.min(x))
+                return self._safe_divide(x, float(np.max(x) - np.min(x)))
             case "mean":
-                return x / np.mean(x)
+                return self._safe_divide(x, float(np.mean(x)))
             case "median":
-                return x / np.median(x)
+                return self._safe_divide(x, float(np.median(x)))
             case "min":
-                return x / np.min(x)
+                return self._safe_divide(x, float(np.min(x)))
             case "minabs":
-                return x / np.min(np.abs(x))
+                return self._safe_divide(x, float(np.min(np.abs(x))))
             case "minmax":
-                return (x - np.min(x)) / (np.max(x) - np.min(x))
+                min_value = float(np.min(x))
+                range_value = float(np.max(x) - min_value)
+                return self._safe_divide(x - min_value, range_value)
             case "power":
                 return np.sign(x) * np.power(np.abs(x), 1 / 2)
             case "quantile":
-                return x / np.quantile(x, 0.95)
+                quantile = float(np.quantile(x, 0.95))
+                return self._safe_divide(x, quantile)
             case "robust":
-                return x / (np.percentile(x, 75) - np.percentile(x, 25))
+                iqr = float(np.percentile(x, 75) - np.percentile(x, 25))
+                return self._safe_divide(x, iqr)
             case "softmax":
-                return np.exp(x) / np.sum(np.exp(x))
+                shifted = x - np.max(x)
+                exp_shifted = np.exp(shifted)
+                return self._safe_divide(exp_shifted, float(np.sum(exp_shifted)))
             case "std":
-                return x / np.std(x)
+                return self._safe_divide(x, float(np.std(x)))
             case "tanh":
                 return np.tanh(x)
             case "var":
-                return x / np.var(x)
+                return self._safe_divide(x, float(np.var(x)))
             case "yeojohnson":
                 return np.sign(x) * np.power(np.abs(x), 1 / 2)
             case "zscore":
-                return (x - np.mean(x)) / np.std(x)
+                return self._safe_divide(x - np.mean(x), float(np.std(x)))
             case _:
                 raise ValueError("Unknown normalization technique")

@@ -2,15 +2,17 @@ from catasta import Foundation, Dataset, Scaffold
 from catasta.models import GPRegressor
 
 
-def objective(params: dict) -> float:
+def objective(params: dict, objective_extra_parameters: dict) -> float:
+    dataset_root: str = objective_extra_parameters["dataset_root"]
+
     model = GPRegressor(
         n_inducing_points=params["n_inducing_points"],
         n_inputs=1,
+        n_outputs=1,
         kernel=params["kernel"],
         mean=params["mean"],
     )
 
-    dataset_root: str = "data/incomplete/"
     dataset = Dataset(
         dataset_root,
         task="regression",
@@ -47,6 +49,7 @@ def main() -> None:
     foundation = Foundation(
         hyperparameter_space=hp_space,
         objective_function=objective,
+        objective_extra_parameters={"dataset_root": "data/incomplete/"},
         sampler="bogp",
         n_trials=10,
         direction="minimize",
